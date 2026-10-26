@@ -4,8 +4,9 @@ A learning management system for an online IT school. Admins build
 courses (sections → lessons → materials, assignments and exams), mentors
 teach and grade, and students learn and track their progress.
 
-> **Status: early development.** The database schema is designed; the
-> backend and frontend come next. See [What's built](#whats-built) below.
+> **Status: early development.** The database, an Express API and a React
+> client are set up and talk to each other. Features come next. See
+> [What's built](#whats-built) below.
 
 ## Roles
 
@@ -16,46 +17,69 @@ teach and grade, and students learn and track their progress.
 | Assistant | Helps mentors with their courses                                    |
 | Student   | Takes enrolled courses, watches lessons, does assignments and exams |
 
-## Tech stack (planned)
+## Tech stack
 
-- **Database:** PostgreSQL
-- **Backend:** Node.js, Express
-- **Frontend:** React, Vite, Tailwind CSS, shadcn/ui
-- **Deployment:** a Linux server
-
-The stack will be filled in as each part is built.
+- **Language:** TypeScript (server and client)
+- **Database:** PostgreSQL 18, run with Docker Compose
+- **Backend:** Node.js 24, Express 5
+- **Frontend:** React 19, Vite 8
+- **Tooling:** ESLint, Prettier
+- **Planned:** Tailwind CSS and shadcn/ui, deployment to a Linux server
 
 ## Project structure
 
 ```
-docs/
-  database/
-    drawsql-1-users-courses-payments.sql   users, roles, courses, enrollments, payments
-    drawsql-2-course-content.sql           sections, lessons, materials, exams, progress
-    setup-timezone-and-triggers.sql        Tashkent time zone, auto-updating updated_at
+client/                  React app (Vite). Calls the API through /api
+server/                  Express API
+  src/index.ts           app entry point
+docs/database/           database schema (source of truth)
+docker-compose.yml       PostgreSQL for local development
 ```
+
+## Getting started
+
+Requirements: Node.js 24+, Docker Desktop.
+
+```bash
+# 1. Database: copy .env.example to .env, fill in the values, then
+docker compose up -d
+
+# 2. API (http://localhost:4000)
+cd server
+npm install
+npm run dev
+
+# 3. Client (http://localhost:5173), in a second terminal
+cd client
+npm install
+npm run dev
+```
+
+In development, Vite forwards every request starting with `/api` to the
+Express server, so the browser only talks to one address.
 
 ## Database
 
-18 tables, split into two files so each one can be imported into
+18 tables in two files, split so each one can be imported into
 [drawSQL](https://drawsql.app) as a diagram (the free plan allows 15
-tables per diagram). The second file starts with short copies of `users`
-and `courses` so its relationships show up in drawSQL. Skip those copies
-when creating a real database.
+tables per diagram), plus one setup file:
 
-To create the database locally:
+| File                                   | Contents                                       |
+| -------------------------------------- | ---------------------------------------------- |
+| `drawsql-1-users-courses-payments.sql` | users, roles, courses, enrollments, payments   |
+| `drawsql-2-course-content.sql`         | sections, lessons, materials, exams, progress  |
+| `setup-timezone-and-triggers.sql`      | Tashkent time zone, auto-updating `updated_at` |
 
-```bash
-createdb it_live_lms
-psql -d it_live_lms -f docs/database/drawsql-1-users-courses-payments.sql
-# then run drawsql-2-course-content.sql without its first two tables (users, courses)
-psql -d it_live_lms -f docs/database/setup-timezone-and-triggers.sql
-```
+Docker Compose loads all three automatically the first time the database
+starts with an empty volume.
 
 ## What's built
 
 - [x] Database schema
-- [ ] Project setup (backend and frontend)
+- [x] Project setup: Docker database, Express + TypeScript API, React +
+      TypeScript client, connected through a proxy
+- [x] API connected to the database (`GET /api/health` reports server and
+      database status)
 - [ ] Login and roles
 - [ ] Admin: users
 - [ ] Admin: courses, sections, lessons, materials

@@ -72,8 +72,57 @@ on save. Tested on a clone: `--write` touches 10 files (formatting only,
 including the md tables and the server's 4-space indent), and lint and
 type-check still pass after it. The formatting goes in its own commit.
 
-Then the rest of step 2: the server ↔ database connection (decide `pg` vs
-Drizzle), then the first-deploy decision (needs a VPS). Smaller notes: `dataType` →
+Prettier committed and pushed (`5e5fedb`). Claude updated `README.md`
+(stack, structure, getting started, status); not committed yet, goes in
+with the next commit.
+
+Now (2026-10-26): server ↔ database. Recommended and explained to the
+user: plain **`pg`** (node-postgres) with hand-written, parameterized SQL,
+no ORM for now, because the SQL files are already the source of truth
+(with triggers) and the user wants real SQL skill. Revisit an ORM or
+query builder only if it starts to hurt. Migrations get introduced the
+first time the schema changes. The step: `npm install pg` +
+`-D @types/pg`; `server/.env` with `DATABASE_URL` (port 5433) and
+`server/.env.example`; scripts use Node's `--env-file` (`tsx watch
+--env-file=.env ...`, `node --env-file=.env dist/index.js`, no dotenv
+package); the user writes `src/db.ts` (Pool from `DATABASE_URL`, fail
+fast when it's missing, `pool.on("error", ...)`) and makes `/api/health`
+run `SELECT 1`: 200 `{ status, database: "ok" }`, or 503 with
+`database: "unreachable"`. Tested in scratch: works, and **without
+`pool.on("error")` the whole server crashes** when the database goes
+away (unhandled 'error' event, code 57P01). With it: 503, then 200 once
+the database is back. Relative imports must end in `.js`
+(`import { pool } from "./db.js"`) because of ESM + `nodenext`.
+
+Progress 2026-10-26: `pg` and `@types/pg` installed, scripts use
+`--env-file`, `server/.env` and `.env.example` exist (port 5433). The user
+asked for help with `db.ts`. Their draft was close; Claude explained three
+fixes: `new Pool({})` → `new Pool({ connectionString: DATABASE_URL })`
+(an empty config silently falls back to localhost:5432, the _local_
+Postgres), remove `process.exit(-1)` from `pool.on("error")` (copied from
+the pg docs example, but it brings back the crash we want to avoid), and a
+clearer error message naming `DATABASE_URL`. Default export kept, so the
+import is `import pool from "./db.js"`. The user applied fix 1 and wrote the
+`/api/health` check in `index.ts` (works: 200 `database: "ok"` against the
+Docker DB). Still open after the 3rd review: `process.exit(-1)` is still
+in `pool.on("error")`, the error message says "URL" instead of
+`DATABASE_URL`, the 503 body has `status: 503` (should stay `"ok"`, same
+shape as the 200 body), and an unused `err` in `catch`. Also decided:
+scripts switch from `--env-file` to `--env-file-if-exists` (tested with
+tsx watch and node). Reason: with `--env-file` a missing file stops Node
+before our code runs ("node: .env: not found", which is what the user hit
+when testing by renaming `.env`), and in production Docker passes real
+environment variables with no `.env` file, so `npm start` would crash.
+
+Done 2026-10-26: all fixes applied, scripts use `--env-file-if-exists`.
+Verified by Claude on a test instance: database up → 200
+`database: "ok"`; database stopped → 503 `database: "unreachable"` and
+the server stays up (pool error logged); database back → 200; no env
+file → "DATABASE_URL is not set" from the user's own check. Not committed
+yet; the user commits (server code, `server/.env.example`, README,
+PROGRESS, CLAUDE).
+
+Next: the first-deploy decision (needs a VPS), the last part of step 2. Smaller notes: `dataType` →
 PascalCase `HealthResponse`, don't put `null` inside the response type
 (use `useState<HealthResponse | null>(null)`), the inner `data` shadows
 the state name, and "Servers status:" is missing a space. Done = the page shows the server's status

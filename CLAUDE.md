@@ -105,4 +105,18 @@ Vite, some Tailwind and shadcn. Docker: theory from videos only.
   integer columns (no BIGINT), TIMESTAMPTZ with the database time zone set
   to Asia/Tashkent, and `updated_at` maintained by the `set_updated_at()`
   trigger. Any new table with `updated_at` needs its own trigger line.
-- For later: node-postgres returns NUMERIC (prices, amounts) as strings.
+- node-postgres returns NUMERIC (prices, amounts) as strings.
+- node-postgres: a `Pool` without `pool.on("error", ...)` crashes the
+  whole Node process when the database drops an idle connection (tested:
+  restart or stop Postgres → unhandled 'error' event, code 57P01).
+- Server is ESM with `module: nodenext`: relative imports need the `.js`
+  extension even in `.ts` files (`./db.js`).
+- Env files: Node's built-in `--env-file-if-exists=.env` (works with
+  `tsx watch` and `node`), no dotenv. Not `--env-file`: that one exits
+  with "node: .env: not found" before any code runs, and production
+  Docker has no `.env` file. Real variables already set in the
+  environment win over the file. Root `.env` = Docker Compose's
+  POSTGRES_* values; `server/.env` = the server's `DATABASE_URL`
+  (host port 5433). Never read or print `.env` values; show keys only.
+- Prettier runs from the repo root (`npm run format`, `format:check`).
+  Run it on any file Claude writes before handing it over.
