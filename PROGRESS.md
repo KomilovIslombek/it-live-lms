@@ -34,6 +34,32 @@ import, revisit).
 
 Docker setup committed and pushed (`be117e5`).
 
+Server committed and pushed (`53648ff`). The user then changed
+`{ "status": "ok" }` to `{ status: "ok" }` (uncommitted; goes in the next
+commit).
+
+Done 2026-10-26: `client/` scaffolded and cleaned by the user: `App.tsx`
+shows an `IT Live LMS` heading, demo CSS/assets removed, title set. Build
+and lint pass. The user's scaffold came with **ESLint** (`npm run lint`),
+not oxlint as in Claude's scratch test. Leftovers: `public/icons.svg`
+(unused demo sprite, to delete) and Vite's logo as `favicon.svg` (replace
+later). Not committed yet; the user commits themselves.
+
+Now: Vite proxy `/api` → `http://localhost:4000`, the server route
+becomes `/api/health`, and `App.tsx` fetches it and shows the status
+(user writes the fetch code). Done = the page shows the server's status
+with both dev servers running, and an error message when the server is
+stopped.
+
+How the scaffold step was set up: `client/` scaffold. Commands: `npm create vite@latest
+client -- --template react-ts --no-interactive`, `npm install`,
+`npm run dev`. Tested in scratch: create-vite 9.3, Vite 8.3, React 19.3,
+TypeScript 6.0 in the client (the server has 7.0; fine), oxlint as the
+linter, its own `client/.gitignore`. The user then strips the demo:
+`App.tsx` shows just a heading, deletes `App.css` and the demo assets and
+`client/README.md`, and sets the `<title>` in `index.html`. Done =
+`npm run dev` shows the heading and `npm run build` passes.
+
 Done 2026-10-26: the user wrote `server/src/index.ts` (Express app,
 `/health`, port from env or 4000). Verified: `tsc --noEmit` clean, build
 runs, `/health` returns 200 `{"status":"ok"}`. Review notes given: types
