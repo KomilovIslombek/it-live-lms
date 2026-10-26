@@ -56,15 +56,24 @@ answers **502 text/plain**, `res.json()` throws, nothing catches it, and
 the page stays on "Checking server..." forever. The user fixed it
 (2026-10-26): `res.ok` check, error state, `.catch`, `.finally`. The 502
 case now shows "Server is not reachable". Remaining issue found in the
-second review: `.catch(err => setError(err))` stores an Error *object* in
+second review: `.catch(err => setError(err))` stores an Error _object_ in
 a `string | null` state (TypeScript allows it because a catch reason is
 `any`), and rendering an object in JSX crashes React. Realistic trigger:
 a 200 response that isn't JSON (e.g. a misrouted proxy returning HTML).
-The user fixes it with a string message, ideally by throwing in the
-`!res.ok` branch so only `.catch` sets the error. Then commit (the user
-does it), and step 2 continues with Prettier, the server ↔ database
-connection (decide `pg` vs Drizzle) and the first-deploy decision (needs
-a VPS). Smaller notes: `dataType` →
+Fixed by the user (throws in the `!res.ok` branch, stores
+`err.message`), committed and pushed as `30c6b1b`.
+
+Now (2026-10-26): Prettier at the repo root: a root `package.json`
+(private, only Prettier, pinned with `--save-exact`), `.prettierrc` = `{}`
+(defaults: double quotes, semicolons, 2 spaces), `.prettierignore` =
+`package-lock.json` (Prettier 3 also skips everything in `.gitignore`),
+scripts `format` / `format:check`, and `.vscode/settings.json` with format
+on save. Tested on a clone: `--write` touches 10 files (formatting only,
+including the md tables and the server's 4-space indent), and lint and
+type-check still pass after it. The formatting goes in its own commit.
+
+Then the rest of step 2: the server ↔ database connection (decide `pg` vs
+Drizzle), then the first-deploy decision (needs a VPS). Smaller notes: `dataType` →
 PascalCase `HealthResponse`, don't put `null` inside the response type
 (use `useState<HealthResponse | null>(null)`), the inner `data` shadows
 the state name, and "Servers status:" is missing a space. Done = the page shows the server's status
@@ -117,6 +126,7 @@ The user's v1 (15 tables,
 repo) was reviewed against the admin screens. At the user's request Claude
 wrote the fixed v2 (18 tables) in `docs/database/`, split into two files
 for the drawsql free plan (max 15 tables per diagram):
+
 - `drawsql-1-users-courses-payments.sql`: 8 tables
 - `drawsql-2-course-content.sql`: 10 tables + short reference copies of
   users and courses so the arrows import
@@ -149,6 +159,7 @@ transaction_id and paid_at nullable (pending payments), ON DELETE rules,
 `lesson_progress`.
 
 Open questions (the user will clarify; deliberately left out of v2):
+
 1. Mentors per course: one or two? So there is no course ↔ mentor link yet.
 2. Do exams belong to a lesson or a section? `exams.lesson_id` for now.
 3. Login: email or phone. Both stay nullable for now (user's decision).

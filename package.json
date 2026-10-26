@@ -1,0 +1,28 @@
+{
+  "name": "it-live-lms",
+  "version": "1.0.0",
+  "description": "A learning management system for an online IT school. Admins build courses (sections → lessons → materials, assignments and exams), mentors teach and grade, and students learn and track their progress.",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KomilovIslombek/it-live-lms.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/KomilovIslombek/it-live-lms/issues"
+  },
+  "homepage": "https://github.com/KomilovIslombek/it-live-lms#readme",
+  "private": true,
+  "devDependencies": {
+    "prettier": "3.9.10"
+  }
+}

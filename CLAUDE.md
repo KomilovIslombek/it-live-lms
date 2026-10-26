@@ -40,6 +40,7 @@ It is planned to be deployed to a real server.
 ## The big picture
 
 Four apps on one backend and one database:
+
 - **Admin** creates everything: users by role, courses → sections →
   lessons → materials/assignments/exams, payments, comments.
 - **Mentor**: a smaller admin panel limited to their own courses, plus
@@ -72,7 +73,7 @@ Vite, some Tailwind and shadcn. Docker: theory from videos only.
 - WSL 2 (Ubuntu) and Docker Desktop (per-user install, WSL 2 backend) were
   installed on 2026-10-26: Docker 29.9.2, Compose v5.6.1. `docker.exe` is
   in `C:\Users\i7\AppData\Local\Programs\DockerDesktop\resources\bin`, which
-  is on the *user* PATH. Terminals opened before the install don't see it
+  is on the _user_ PATH. Terminals opened before the install don't see it
   ("docker is not recognized"): restart the app that owns the terminal.
 - The user's PowerShell had no execution policy set (Windows default:
   Restricted), so `npm` (npm.ps1) failed with "running scripts is disabled

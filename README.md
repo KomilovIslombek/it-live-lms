@@ -9,12 +9,12 @@ teach and grade, and students learn and track their progress.
 
 ## Roles
 
-| Role | What they do |
-|---|---|
-| Admin | Manages users, courses and their content, payments and comments |
-| Mentor | Manages their own courses, grades assignments and exams |
-| Assistant | Helps mentors with their courses |
-| Student | Takes enrolled courses, watches lessons, does assignments and exams |
+| Role      | What they do                                                        |
+| --------- | ------------------------------------------------------------------- |
+| Admin     | Manages users, courses and their content, payments and comments     |
+| Mentor    | Manages their own courses, grades assignments and exams             |
+| Assistant | Helps mentors with their courses                                    |
+| Student   | Takes enrolled courses, watches lessons, does assignments and exams |
 
 ## Tech stack (planned)
 
