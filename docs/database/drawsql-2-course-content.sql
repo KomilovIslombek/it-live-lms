@@ -8,21 +8,18 @@
 -- - how mentors link to courses (one or two mentors per course), so no link yet
 -- - whether exams belong to a lesson or a section; exams.lesson_id for now
 
-CREATE TABLE "users"(
+-- Reference copies. IF NOT EXISTS: when part 1 already ran (a real
+-- database), these two lines do nothing; on their own (drawsql) they
+-- create the short copies.
+CREATE TABLE IF NOT EXISTS "users"(
     "id" SERIAL PRIMARY KEY,
     "full_name" VARCHAR(255) NOT NULL
 );
-COMMENT
-ON COLUMN
-    "users"."id" IS 'Reference copy. Full table is in part 1';
 
-CREATE TABLE "courses"(
+CREATE TABLE IF NOT EXISTS "courses"(
     "id" SERIAL PRIMARY KEY,
     "title" VARCHAR(255) NOT NULL
 );
-COMMENT
-ON COLUMN
-    "courses"."id" IS 'Reference copy. Full table is in part 1';
 
 CREATE TABLE "sections"(
     "id" SERIAL PRIMARY KEY,

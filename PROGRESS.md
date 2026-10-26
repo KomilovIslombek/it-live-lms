@@ -8,13 +8,36 @@ Last updated: 2026-10-26
 `.gitignore`, `.gitattributes` (`* text=auto eol=lf`, because the app will
 run on Linux), first commit `d930caf` (2026-10-26).
 
-Now: Claude drafted `README.md` (not committed yet). The user reviews it,
-commits it, and creates the GitHub repo with `gh` (logged in as
-KomilovIslombek). Recommended: public, so the commit history shows the
-project growing. Ask before every push.
+README committed (`cab62d8`) and pushed to the public repo
+https://github.com/KomilovIslombek/it-live-lms (2026-10-26). Ask before
+every push.
 
-Then: decide TypeScript or JavaScript, and local PostgreSQL now vs Docker
-(not installed yet), before creating the `server/` and `client/` folders.
+WSL 2 and Docker Desktop installed and working in the user's terminal
+(2026-10-26).
+
+Done 2026-10-26: the project database runs in Docker (container
+`it-live-lms-db`, host port 5433, user `lms`, database `it_live_lms`,
+password only in the gitignored `.env`). 18 tables, 16 triggers,
+Asia/Tashkent verified. To query it without reading `.env`:
+`docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'`.
+
+Setup that was done: the user wrote `.env`, `.env.example` and `docker-compose.yml` (one
+`db` service: `postgres:18`, host port 5433, named volume at
+`/var/lib/postgresql`, `./docs/database` mounted as
+`/docker-entrypoint-initdb.d` so the 3 schema files load on first start),
+runs `docker compose up -d` and checks `\dt` shows 18 tables. Claude tested
+this exact setup in a throwaway compose project first: 18 tables, 16
+triggers, Asia/Tashkent, reachable from Windows, data survives
+`down`/`up`. To make that work, file 2's reference copies became
+`CREATE TABLE IF NOT EXISTS` (2026-10-26; if drawsql rejects that on
+import, revisit).
+
+Next: commit the Docker setup (not committed yet), then `server/`
+(Express + TypeScript, hello-world + `/health`).
+
+Then, one at a time: `docker-compose.yml` with a single Postgres service on
+host port 5433 → run the 3 schema files into it → `server/` (Express +
+TypeScript, hello-world + `/health`) → `client/` (Vite react-ts).
 
 ### Step 1 notes (database, done)
 
@@ -83,8 +106,15 @@ Steps 1–6 are v1: a deployed project the user can show.
 ## Decisions
 
 - Admin side first. Work feature by feature.
-- Proposed stack (not yet confirmed by the user; confirm at step 2):
-  TypeScript; React + Vite, React Router, TanStack Query and Table,
+- **TypeScript** on server and client (decided 2026-10-26). The user has
+  never used it, so introduce it gradually: only the types each step
+  needs, explained when they first appear.
+- **Docker for the database only during development** (decided
+  2026-10-26): Postgres runs in a container via docker-compose; the Node
+  server and Vite client run natively with `npm run dev` (fast reloads,
+  no Windows volume problems). Dockerfiles for server/client come at the
+  deploy step and reuse the same compose setup.
+- Proposed rest of the stack (confirm each part when we reach it): React + Vite, React Router, TanStack Query and Table,
   react-hook-form + zod, Tailwind + shadcn/ui, i18next; Node + Express;
   PostgreSQL + Drizzle ORM; JWT with a refresh token in an httpOnly
   cookie; S3-compatible file storage; Docker Compose; deploy to a VPS
@@ -106,3 +136,6 @@ Steps 1–6 are v1: a deployed project the user can show.
   auto-updating updated_at (`setup-timezone-and-triggers.sql`). The user
   re-imported it into drawsql. Step 1 done.
 - 2026-10-26: git initialized, first commit `d930caf` (docs + schema).
+- 2026-10-26: README added, repo pushed to GitHub (public).
+- 2026-10-26: WSL 2 + Docker Desktop installed; Postgres 18 runs in Docker
+  with the full schema loaded.

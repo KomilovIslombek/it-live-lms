@@ -66,8 +66,26 @@ Vite, some Tailwind and shadcn. Docker: theory from videos only.
   reference copies of `users` and `courses` so its foreign keys import.
   Edit those two tables only in file 1.
 - PostgreSQL 18 is installed locally (`C:\Program Files\PostgreSQL\18\bin`
-  is on PATH). Docker is not installed yet. To test SQL without touching
-  the user's server: `initdb` a throwaway cluster in the scratchpad, start
+  is on PATH) and runs as the Windows service `postgresql-x64-18`
+  (automatic start) on port 5432. So the project's Docker Postgres uses
+  host port **5433**; connecting to 5432 hits the wrong database.
+- WSL 2 (Ubuntu) and Docker Desktop (per-user install, WSL 2 backend) were
+  installed on 2026-10-26: Docker 29.9.2, Compose v5.6.1. `docker.exe` is
+  in `C:\Users\i7\AppData\Local\Programs\DockerDesktop\resources\bin`, which
+  is on the *user* PATH. Terminals opened before the install don't see it
+  ("docker is not recognized"): restart the app that owns the terminal.
+- Claude's Bash tool also has the old PATH: prefix commands with
+  `export PATH="/c/Users/i7/AppData/Local/Programs/DockerDesktop/resources/bin:$PATH"`.
+- `postgres:18` image: mount the data volume at `/var/lib/postgresql`, not
+  `/var/lib/postgresql/data` (Postgres 18 moved its data directory).
+- Files in `/docker-entrypoint-initdb.d` run only when the data volume is
+  empty (first start). After a schema change, `docker compose down -v`
+  wipes the volume and the next `up` reloads the schema. That deletes all
+  data, so warn the user before suggesting it.
+- To test compose without touching the user's containers: copy what's
+  needed into the scratchpad and use another project name and port
+  (`docker compose -p lmstest`, host port 55433), then `down -v`.
+- To test SQL without touching the user's server: `initdb` a throwaway cluster in the scratchpad, start
   it on another port, run the files, stop it and delete it.
 - Postgres messages on this machine are in Russian.
 - Don't name a database `full`: it's a reserved word.
