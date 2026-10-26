@@ -1,10 +1,24 @@
 # Progress
 
-Last updated: 2026-10-24
+Last updated: 2026-10-26
 
 ## Current step
 
-**Step 1: database diagram, v2 written.** The user's v1 (15 tables,
+**Step 2: project setup, in progress.** Done so far: `git init`,
+`.gitignore`, `.gitattributes` (`* text=auto eol=lf`, because the app will
+run on Linux), first commit `d930caf` (2026-10-26).
+
+Now: Claude drafted `README.md` (not committed yet). The user reviews it,
+commits it, and creates the GitHub repo with `gh` (logged in as
+KomilovIslombek). Recommended: public, so the commit history shows the
+project growing. Ask before every push.
+
+Then: decide TypeScript or JavaScript, and local PostgreSQL now vs Docker
+(not installed yet), before creating the `server/` and `client/` folders.
+
+### Step 1 notes (database, done)
+
+The user's v1 (15 tables,
 `C:\Users\i7\Downloads\IT-LIVE-LMS_admin-dashboard_v1.sql`, outside the
 repo) was reviewed against the admin screens. At the user's request Claude
 wrote the fixed v2 (18 tables) in `docs/database/`, split into two files
@@ -30,10 +44,6 @@ time zone to Asia/Tashkent and adds a trigger on the 16 tables that have
 18: all three files run, 18 tables, 16 triggers, `now()` shows +05,
 updated_at moves on UPDATE.
 
-Next: the user re-imports the two table files into drawsql to check the
-diagram, then starts step 2: `git init`, a `.gitignore`, first commit
-(local only, no push yet).
-
 Changes in v2 (ids/BIGINT later replaced in v3): identity ids, BIGINT ids, `timestamptz NOT NULL
 DEFAULT now()`, typo fixes, money as NUMERIC(12,2) (the problem with
 DECIMAL(8,2) was only its size), `password_hash`, UNIQUE on email, phone,
@@ -56,8 +66,8 @@ Q&A, ratings/reviews, notifications, course assistants.
 
 Status: done / in progress / next / later
 
-1. [in progress] Database diagram: review the drawsql tables
-2. [next] Project setup: folders, git, Postgres running in Docker, a first
+1. [done] Database diagram: review the drawsql tables
+2. [in progress] Project setup: git + GitHub, folders, Postgres, a first
    deploy of a tiny app
 3. [later] Login and roles (admin, mentor, assistant, student)
 4. [later] Admin manages users
@@ -93,4 +103,6 @@ Steps 1–6 are v1: a deployed project the user can show.
 - 2026-10-24: Reviewed the first version of the database diagram and wrote
   v2 in `docs/database/` (details under "Current step").
 - 2026-10-24: Schema v3: SERIAL/INTEGER ids, Tashkent time zone,
-  auto-updating updated_at (`setup-timezone-and-triggers.sql`).
+  auto-updating updated_at (`setup-timezone-and-triggers.sql`). The user
+  re-imported it into drawsql. Step 1 done.
+- 2026-10-26: git initialized, first commit `d930caf` (docs + schema).
