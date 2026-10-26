@@ -32,8 +32,33 @@ triggers, Asia/Tashkent, reachable from Windows, data survives
 `CREATE TABLE IF NOT EXISTS` (2026-10-26; if drawsql rejects that on
 import, revisit).
 
-Next: commit the Docker setup (not committed yet), then `server/`
-(Express + TypeScript, hello-world + `/health`).
+Docker setup committed and pushed (`be117e5`).
+
+Done 2026-10-26: the user wrote `server/src/index.ts` (Express app,
+`/health`, port from env or 4000). Verified: `tsc --noEmit` clean, build
+runs, `/health` returns 200 `{"status":"ok"}`. Review notes given: types
+on route handlers are inferred (annotate with `Request`/`Response` only
+when a handler lives outside `app.get`, e.g. in a controller file); mixed
+quotes and semicolons, so add Prettier later. Not committed yet; the user
+commits themselves.
+
+How that step was set up: `server/` hello-world. The user runs the setup
+commands, creates `tsconfig.json`, and writes `src/index.ts` themselves
+(Express app, `GET /health` → `{ "status": "ok" }`, port from
+`process.env.PORT` or 4000). Done = `npm run dev` serves
+http://localhost:4000/health and `npm run build` makes `dist/` with no
+errors. Claude tested this exact setup in a scratch folder first.
+
+Server tooling (tested 2026-10-26): Node 24.18, Express 5.3, TypeScript
+7.0 (the new native compiler), tsx 4.23 for dev (`tsx watch`, strips
+types, does NOT type-check), `tsc` for build/type-checking, ESM
+(`"type": "module"`), `module: nodenext`. tsconfig is hand-written, not
+`tsc --init` (its default `"types": []` hides Node's types and it adds
+strict extras that would confuse a beginner). npm prints an
+"allow-scripts" warning for esbuild (a tsx dependency); tsx works without
+approving it.
+
+After that: commit, then `client/` (Vite react-ts).
 
 Then, one at a time: `docker-compose.yml` with a single Postgres service on
 host port 5433 → run the 3 schema files into it → `server/` (Express +

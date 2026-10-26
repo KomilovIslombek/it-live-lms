@@ -74,6 +74,13 @@ Vite, some Tailwind and shadcn. Docker: theory from videos only.
   in `C:\Users\i7\AppData\Local\Programs\DockerDesktop\resources\bin`, which
   is on the *user* PATH. Terminals opened before the install don't see it
   ("docker is not recognized"): restart the app that owns the terminal.
+- The user's PowerShell had no execution policy set (Windows default:
+  Restricted), so `npm` (npm.ps1) failed with "running scripts is disabled
+  on this system". It's not a PATH problem. Fix (2026-10-26): the user runs
+  `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned`
+  themselves; Claude must not change security settings. Workaround if it's
+  not set: `npm.cmd`. Claude's own PowerShell runs with Bypass, so it
+  doesn't see this error.
 - Claude's Bash tool also has the old PATH: prefix commands with
   `export PATH="/c/Users/i7/AppData/Local/Programs/DockerDesktop/resources/bin:$PATH"`.
 - `postgres:18` image: mount the data volume at `/var/lib/postgresql`, not
