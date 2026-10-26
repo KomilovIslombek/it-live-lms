@@ -45,9 +45,29 @@ not oxlint as in Claude's scratch test. Leftovers: `public/icons.svg`
 (unused demo sprite, to delete) and Vite's logo as `favicon.svg` (replace
 later). Not committed yet; the user commits themselves.
 
+Client committed and pushed (`8eb03b6`).
+
 Now: Vite proxy `/api` → `http://localhost:4000`, the server route
 becomes `/api/health`, and `App.tsx` fetches it and shows the status
-(user writes the fetch code). Done = the page shows the server's status
+(user writes the fetch code). First attempt reviewed 2026-10-26: proxy
+and route correct, the happy path works (200 `{"status":"ok"}` through the
+proxy). The bug: no error handling. With the server off, the Vite proxy
+answers **502 text/plain**, `res.json()` throws, nothing catches it, and
+the page stays on "Checking server..." forever. The user fixed it
+(2026-10-26): `res.ok` check, error state, `.catch`, `.finally`. The 502
+case now shows "Server is not reachable". Remaining issue found in the
+second review: `.catch(err => setError(err))` stores an Error *object* in
+a `string | null` state (TypeScript allows it because a catch reason is
+`any`), and rendering an object in JSX crashes React. Realistic trigger:
+a 200 response that isn't JSON (e.g. a misrouted proxy returning HTML).
+The user fixes it with a string message, ideally by throwing in the
+`!res.ok` branch so only `.catch` sets the error. Then commit (the user
+does it), and step 2 continues with Prettier, the server ↔ database
+connection (decide `pg` vs Drizzle) and the first-deploy decision (needs
+a VPS). Smaller notes: `dataType` →
+PascalCase `HealthResponse`, don't put `null` inside the response type
+(use `useState<HealthResponse | null>(null)`), the inner `data` shadows
+the state name, and "Servers status:" is missing a space. Done = the page shows the server's status
 with both dev servers running, and an error message when the server is
 stopped.
 
