@@ -1,0 +1,277 @@
+{
+  "info": {
+    "name": "IT Live LMS API",
+    "description": "Requests for the IT Live LMS Express API, with tests on every request.\n\nSetup: import this collection and `local.postman_environment.json`, select the **IT Live LMS (local)** environment, and fill in `adminEmail` and `adminPassword` (the values from `server/.env`) as *current values*. Start the database (`docker compose up -d`) and the server (`cd server && npm run dev`).\n\nRun the whole collection with **Run collection**, or send requests one by one. Postman keeps the login cookie like a browser does, so **Login** must run before **Me**.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/health",
+            "description": "Is the server up, and can it reach the database? 200 when both are fine, 503 when the database is unreachable."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Server and database are ok\", () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.status).to.eql(\"ok\");",
+                  "  pm.expect(body.database).to.eql(\"ok\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "description": "Logs in with email and password. On success the server sets an httpOnly cookie named `token` (a JWT valid for 1 day) and returns the user without the password hash."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Returns the user without the password hash\", () => {",
+                  "  const { user } = pm.response.json();",
+                  "  pm.expect(user).to.include.keys(\"id\", \"email\", \"full_name\", \"status\", \"role\");",
+                  "  pm.expect(user).to.not.have.property(\"password_hash\");",
+                  "});",
+                  "pm.test(\"Sets the token cookie\", () => {",
+                  "  pm.expect(pm.cookies.has(\"token\")).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Me (logged in)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/auth/me",
+            "description": "Who am I? Uses the `token` cookie that **Login** stored, so run Login first."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Returns the logged-in user\", () => {",
+                  "  const { user } = pm.response.json();",
+                  "  pm.expect(user.email).to.eql(pm.environment.get(\"adminEmail\"));",
+                  "  pm.expect(user).to.not.have.property(\"password_hash\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Me without a cookie → 401",
+          "protocolProfileBehavior": { "disableCookies": true },
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/auth/me",
+            "description": "Cookies are turned off for this request (Settings tab → Disable cookie jar), so it behaves like a visitor who never logged in."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Error says not logged in\", () => {",
+                  "  pm.expect(pm.response.json().error).to.match(/not logged in/i);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Me with an invalid token → 401",
+          "protocolProfileBehavior": { "disableCookies": true },
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Cookie", "value": "token=not-a-real-token" }],
+            "url": "{{baseUrl}}/api/v1/auth/me",
+            "description": "Sends a fake token. The signature check fails, so the server answers 401."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Error says the session is invalid\", () => {",
+                  "  pm.expect(pm.response.json().error).to.eql(\"Session expired or invalid\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Errors",
+      "item": [
+        {
+          "name": "Login with a wrong password → 401",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"definitely-the-wrong-password\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Same message as an unknown email\", () => {",
+                  "  pm.expect(pm.response.json().error).to.eql(\"Invalid email or password\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login with an unknown email → 401",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"nobody@example.com\",\n  \"password\": \"whatever123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Same message as a wrong password\", () => {",
+                  "  pm.expect(pm.response.json().error).to.eql(\"Invalid email or password\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login with an invalid body → 400",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"not-an-email\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Explains each wrong field\", () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.error).to.eql(\"Invalid request\");",
+                  "  pm.expect(body.details).to.have.keys(\"email\", \"password\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Broken JSON → 400",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{bad" },
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "description": "The body isn't valid JSON. The error handler must answer with JSON, not Express's HTML error page."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Answers with JSON, not HTML\", () => {",
+                  "  pm.response.to.be.json;",
+                  "  pm.expect(pm.response.json().error).to.eql(\"Invalid JSON\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unknown route → 404",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/does-not-exist"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Answers with JSON\", () => {",
+                  "  pm.expect(pm.response.json().error).to.eql(\"Not found\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

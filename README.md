@@ -31,8 +31,15 @@ teach and grade, and students learn and track their progress.
 ```
 client/                  React app (Vite). Calls the API through /api
 server/                  Express API
-  src/index.ts           app entry point
+  src/app.ts             middleware and routes
+  src/routes/            URL → controller
+  src/controllers/       read the request, send the response
+  src/services/          SQL queries
+  src/schemas/           request validation (zod)
+  src/middleware/        auth check, JSON errors
+  src/scripts/seed.ts    roles and the first admin
 docs/database/           database schema (source of truth)
+postman/                 Postman collection and environment
 docker-compose.yml       PostgreSQL for local development
 ```
 
@@ -44,9 +51,11 @@ Requirements: Node.js 24+, Docker Desktop.
 # 1. Database: copy .env.example to .env, fill in the values, then
 docker compose up -d
 
-# 2. API (http://localhost:4000)
+# 2. API (http://localhost:4000): copy server/.env.example to server/.env
+#    and fill it in, then
 cd server
 npm install
+npm run db:seed   # roles and the first admin
 npm run dev
 
 # 3. Client (http://localhost:5173), in a second terminal
@@ -57,6 +66,37 @@ npm run dev
 
 In development, Vite forwards every request starting with `/api` to the
 Express server, so the browser only talks to one address.
+
+## API
+
+| Method | Path                 | Auth   | Description                                                |
+| ------ | -------------------- | ------ | ---------------------------------------------------------- |
+| GET    | `/api/health`        | -      | Server and database status (200, or 503 if the DB is down) |
+| POST   | `/api/v1/auth/login` | -      | Email + password; sets an httpOnly `token` cookie (1 day)  |
+| GET    | `/api/v1/auth/me`    | cookie | The logged-in user                                         |
+
+Errors are always JSON: `{ "error": "..." }`, plus `details` for
+validation errors (400).
+
+### Testing the API with Postman
+
+The `postman/` folder has a collection with every request and a test on
+each one (status codes, response shape, no password hash, the cookie,
+the error cases).
+
+1. In the Postman app: **Import** → select both files in `postman/`.
+2. Select the **IT Live LMS (local)** environment and fill in
+   `adminEmail` and `adminPassword` (the values from `server/.env`).
+3. With the database and server running, open the collection and click
+   **Run**.
+
+Or from the terminal with the [Postman CLI](https://learning.postman.com/docs/postman-cli/postman-cli-overview/):
+
+```bash
+postman collection run postman/it-live-lms.postman_collection.json \
+  -e postman/local.postman_environment.json \
+  --env-var "adminEmail=you@example.com" --env-var "adminPassword=..."
+```
 
 ## Database
 

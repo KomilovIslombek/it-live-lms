@@ -37,35 +37,58 @@ scratch folder first, and reviews.
   no cookie on failure. TypeScript lesson: an `if (!x) throw` check at
   module level doesn't carry into a function declaration, so copy it into
   `const JWT_SECRET: string = secret` after the check.
-- **3c part 1 (now): who am I?** Tested in scratch 2026-10-30
-  (cookie-parser 1.4.7 + @types/cookie-parser). The user writes:
-  `app.use(cookieParser())` after `express.json()`;
-  `src/types/express.d.ts` (declaration merging:
-  `declare global { namespace Express { interface Request { user?: TokenPayload } } }`
-  with `import type { TokenPayload }` so the file is a module);
-  `src/middleware/auth.middleware.ts` → `requireAuth`: no
-  `req.cookies.token` → 401 "Not logged in"; `verifyToken` in try/catch,
-  failure → 401 "Session expired or invalid"; success sets `req.user`
-  and calls `next()`; `findUserById` in the user service (same SELECT +
-  JOIN, no `password_hash`); controller `me` loads the user fresh from the
-  DB by `Number(req.user.sub)` and returns 401 if the user is gone or
-  deactivated (so a deactivated account loses access even with a valid
-  token); route `router.get("/me", requireAuth, me)`. Verified: no cookie
-  401, valid cookie 200 `{ user }`, tampered or garbage token 401, user
-  deactivated after login 401, `/api/health` unaffected.
-  User's version reviewed 2026-10-30: works (their curl: 200 / 401 /
-  401), typecheck clean, not committed yet. Fixes asked for before the
-  commit: `findUserById` selects `u.id, u.id` instead of `u.id, u.email`
-  (so `/me` returned no email; TypeScript can't catch it because
-  `pool.query<T>` is a promise about the rows, like `as`, not a check);
-  `express.d.ts` imports `../utils/jwt.ts` → use `.js` like every other
-  import; `const token: string = req.cookies.token` should be
-  `string | undefined` (cookies are `any`); `server/cookies.txt` (curl's
-  cookie jar, holds a valid token) is untracked: delete it and add
-  `cookies.txt` to the root `.gitignore`.
-- 3c part 2: JSON error handler (malformed JSON currently gets Express's
-  default HTML page with a stack trace; `err.type === "entity.parse.failed"`
-  → 400) and a JSON 404 for unknown `/api` routes.
+- **3c part 1. Who am I: done** (2026-10-30, `9f01a38`). `cookieParser()`
+  after `express.json()`; `src/types/express.d.ts` adds
+  `user?: TokenPayload` to Express's `Request` (declaration merging);
+  `src/middleware/auth.middleware.ts` → `requireAuth` (401 "Not logged
+  in!" without a cookie, 401 "Session expired or invalid" when
+  `verifyToken` throws, else `req.user` + `next()`); `findUserById`
+  (no `password_hash`); `GET /api/v1/auth/me` loads the user fresh from
+  the DB and returns 401 if the user is gone or deactivated.
+  `cookies.txt` (curl's cookie jar) is in the root `.gitignore`. Lesson
+  from the review: `pool.query<T>` and `as` are promises to TypeScript,
+  not checks; a SELECT typo (`u.id, u.id`) passed the type-check.
+- **3c part 2 (now): JSON errors.** Tested in scratch 2026-10-30. The user
+  writes `src/middleware/error.middleware.ts`: `notFound(_req, res)` →
+  404 `{ error: "Not found" }`, mounted as `app.use("/api", notFound)`
+  after all routes; `errorHandler: ErrorRequestHandler`
+  (`(err: unknown, _req, res, _next)`, all 4 parameters required, mounted
+  last): narrow `unknown` with `typeof err === "object" && err !== null &&
+"type" in err && err.type === "entity.parse.failed"` → 400
+  `{ error: "Invalid JSON" }`; anything else → `console.error(err)` and
+  500 `{ error: "Internal server error" }` (never send `err.message` or
+  the stack to the client). Verified: broken JSON 400 JSON, unknown route
+  and wrong method 404, login and health unaffected, and a database
+  failure during login → 500 JSON instead of an HTML page. Express 5
+  passes errors from `async` handlers to the error handler by itself, so
+  controllers need no try/catch for unexpected errors.
+  User's version reviewed 2026-10-30: correct (narrowing, order in
+  `app.ts`, typecheck clean), but **`console.error(err)` is missing**
+  before the 500, so real errors would vanish silently. Not committed
+  yet.
+- **Postman (added 2026-10-30, at the user's request).** Claude wrote
+  `postman/it-live-lms.postman_collection.json` (Health; Auth: Login, Me,
+  Me without a cookie, Me with an invalid token; Errors: wrong password,
+  unknown email, invalid body, broken JSON, unknown route; 21 tests) and
+  `postman/local.postman_environment.json` (secrets left empty). Run with
+  the Postman CLI against the user's current code on a throwaway DB: 10
+  requests, 21 assertions, 0 failed. README has an API table and import
+  steps. Not committed yet; goes in with 3c part 2. From now on, every
+  new endpoint gets a request with tests in this collection. The user's
+  own import attempt went wrong, so at their request (2026-10-30) Claude
+  connected via the Postman MCP connector and created the same collection
+  and environment in their **menTalabaman** workspace (ids in
+  CLAUDE.md). Verified all 10 requests, tests and `disableCookies` came
+  through. The user still fills in `adminEmail` / `adminPassword` in the
+  environment. Found afterwards: the user's Postman app had linked the
+  repo's `postman/` folder to "My Workspace" as a local workspace and
+  wrote `postman/.postman/resources.yaml` plus a converted YAML copy under
+  `postman/postman/` (collections, environment with empty email/password,
+  globals). Untracked, no secrets, duplicates of the two JSON files, and
+  Prettier flags one of them. Deleted with the user's OK (2026-10-30), and
+  both folders are now in `.gitignore` in case the app writes them again.
+  The user also added the missing `console.error(err)`; typecheck clean.
+  Ready to commit (3c part 2 + Postman), the user commits.
 - `requireRole("admin")` moves to step 4, where the first admin-only route
   (the users list) needs it.
 - 3d. `POST /api/v1/auth/logout`.
