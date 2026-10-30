@@ -1,64 +1,51 @@
 # Progress
 
-Last updated: 2026-10-29
+Last updated: 2026-10-30
 
 ## Current step
 
-**Step 3: login and roles, starting.** Split into small pieces, one at a
-time (the user writes the code, Claude explains, tests the approach in a
-scratch folder first, and reviews):
+**Step 3: login and roles, in progress.** Small pieces, one at a time:
+the user writes the code; Claude explains, tests the approach in a
+scratch folder first, and reviews.
 
-- **3a. Seed script: done 2026-10-30** on the real Docker DB: roles
-  admin=1, mentor=2, assistant=3, student=4, and the admin user (id 1,
-  role_id 1, bcrypt hash). Second run printed "Admin already exists". Not
-  committed yet; the user commits.
-- **3b part 1 (now): login without a token yet.** Folder structure:
-  `src/app.ts` (the Express app: `express.json()`, health route, mounts
-  `/api/auth`), `src/index.ts` (only `app.listen`), `src/routes/auth.routes.ts`
-  (Router, `POST /login`), `src/controllers/auth.controller.ts` (zod
-  validation, bcrypt compare, responses),
-  `src/services/user.service.ts` (`findUserByEmail`: SELECT with JOIN roles,
-  `r.title AS role`, returns the row or null). Responses: 200
-  `{ user: { id, email, full_name, status, role } }` (never
-  `password_hash`), 400 `{ error, details }` from
-  `z.flattenError(...).fieldErrors`, 401 "Invalid email or password" for
-  both an unknown email and a wrong password, 403 for `status = false`.
-  Tested in scratch 2026-10-30 (zod 4.6.7: `z.email()`, `safeParse`,
-  `z.flattenError`): all 5 cases behave. Found: malformed JSON gets
-  Express's default **HTML** error page with a stack trace, so add a JSON
-  error-handling middleware later (3c or before deploy). Testing tool:
-  curl in **Git Bash** (in Windows PowerShell 5.1, `curl` is an alias of
-  Invoke-WebRequest).
-- 3b part 2: sign a JWT and set it in an httpOnly cookie. Recommended:
-  `jsonwebtoken`, one token with a 1-day lifetime, no refresh token in v1;
-  `httpOnly`, `sameSite: "lax"`, `secure` in production; `JWT_SECRET` in
-  `.env`.
-- (old 3a notes) **3a. Seed script.** `server/src/scripts/seed.ts`, run with
-  `npm run db:seed`. Inserts the 4 roles (admin, mentor, assistant,
-  student) and the first admin user, with the admin's email and password
-  read from `server/.env` (`SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`),
-  never hard-coded. The password is hashed with `bcryptjs` (pure JS, no
-  install scripts). Idempotent: `ON CONFLICT ... DO NOTHING`, so running
-  it twice changes nothing. Parameterized queries (`$1`) only. The script
-  ends with `pool.end()` so the process exits. Tested in scratch
-  2026-10-29 against the real schema: bcryptjs 3.0.3 ships its own types
-  (no `@types/bcryptjs`), top-level `await` works (ESM), hash starts with
-  `$2b$12$`, compare accepts the right password and rejects a wrong one,
-  second run prints "already exists". Script:
-  `"db:seed": "tsx --env-file-if-exists=.env src/scripts/seed.ts"`; the
-  import is `../db.js`; `role_id` via a subquery on `roles.title`.
-  2026-10-30: the user's first `seed.ts` reviewed (run unchanged on a
-  throwaway DB). Bugs: `for await` with an un-awaited `pool.query` (the 4
-  inserts run concurrently: roles got random ids, and the admin SELECT ran
-  before the admin row existed, `rowCount: 0`); the whole `QueryResult`
-  was passed as `role_id` (Postgres error 22P02); no
-  `ON CONFLICT (email) DO NOTHING`, so a 2nd run would fail instead of
-  printing "already exists"; `let` → `const`. All four fixed by the user
-  (reviewed 2026-10-30, type-check clean). The real Docker DB still had 0
-  roles and 0 users before the first real run.
-- 3c. `GET /api/auth/me`, auth middleware, `requireRole("admin")`.
-- 3d. `POST /api/auth/logout`.
+- **3a. Seed script: done** (2026-10-30, `8c9e686`). `npm run db:seed`
+  (`server/src/scripts/seed.ts`) inserts roles admin=1, mentor=2,
+  assistant=3, student=4 and the first admin from `SEED_ADMIN_EMAIL` /
+  `SEED_ADMIN_PASSWORD` in `server/.env`, hashed with bcryptjs (cost 12).
+  `ON CONFLICT DO NOTHING` makes it re-runnable. Lessons from the review:
+  `await` inside a plain `for` (not `for await`), the id is in
+  `result.rows[0]`, not the result object.
+- **3b part 1. Login without a token: done** (2026-10-30, not committed
+  yet; the user commits). `POST /api/v1/auth/login`. Structure:
+  `src/app.ts` (app, `express.json()`, `/api/health`, mounts
+  `/api/v1/auth`), `src/index.ts` (only `listen`), `routes/auth.routes.ts`,
+  `controllers/auth.controller.ts`, `schemas/auth.schema.ts`
+  (`loginSchema`, `LoginInput`), `services/user.service.ts`
+  (`findUserByEmail`, JOIN roles, `r.title AS role`). Responses: 200
+  `{ user }` without `password_hash`; 400 `{ error, details }`; 401
+  "Invalid email or password" for unknown email and wrong password alike;
+  403 when `status = false`. The user ran all 4 curl cases in Git Bash
+  with the expected results. `server/tsconfig.json` now has
+  `noUncheckedIndexedAccess`, and `npm run typecheck` (`tsc --noEmit`) is
+  clean. Lessons from the review: `import type` for types, check `null`
+  before using a value, `return` on every early response, one response
+  shape.
+- **3b part 2 (next): JWT in an httpOnly cookie.** Recommended:
+  `jsonwebtoken`, one token with a 1-day lifetime, no refresh token in
+  v1; cookie `httpOnly`, `sameSite: "lax"`, `secure` in production;
+  `JWT_SECRET` in `server/.env`. Test it in scratch before giving the
+  step.
+- 3c. `GET /api/v1/auth/me`, auth middleware, `requireRole("admin")`. Add
+  a JSON error-handling middleware around here: malformed JSON currently
+  gets Express's default HTML error page with a stack trace.
+- 3d. `POST /api/v1/auth/logout`.
 - 3e. Client: React Router, login page, protected admin area.
+
+Small things for later: lowercase emails before saving and looking them
+up (`Admin@x.com` vs `admin@x.com`); the controller and schema still use
+`import z from "zod"` (works; zod's docs use `import { z } from "zod"`).
+Testing tool: curl in Git Bash (in Windows PowerShell 5.1, `curl` is an
+alias of Invoke-WebRequest).
 
 ## Roadmap
 

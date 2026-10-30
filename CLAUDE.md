@@ -113,6 +113,10 @@ Vite, some Tailwind and shadcn. Docker: theory from videos only.
 - node-postgres: a `Pool` without `pool.on("error", ...)` crashes the
   whole Node process when the database drops an idle connection (tested:
   restart or stop Postgres → unhandled 'error' event, code 57P01).
+- `tsx` (npm run dev) never type-checks; only `tsc` does. Before saying
+  server code works, run `npx tsc --noEmit` in `server/`. Type-only
+  imports must use `import type` (verbatimModuleSyntax), or the app
+  crashes at runtime with "does not provide an export named 'Request'".
 - Server is ESM with `module: nodenext`: relative imports need the `.js`
   extension even in `.ts` files (`./db.js`).
 - Env files: Node's built-in `--env-file-if-exists=.env` (works with
