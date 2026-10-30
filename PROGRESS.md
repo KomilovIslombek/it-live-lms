@@ -29,34 +29,45 @@ scratch folder first, and reviews.
   clean. Lessons from the review: `import type` for types, check `null`
   before using a value, `return` on every early response, one response
   shape.
-- **3b part 2: done 2026-10-30** (user's code reviewed, typecheck clean,
-  their curl output shows `Set-Cookie: token=...; HttpOnly; SameSite=Lax;
-Max-Age=86400` on success and no cookie on 401; not committed yet). Two
-  fixes asked for before the commit: `verifyToken` must return
-  `jwt.verify(...) as TokenPayload` (otherwise the type is
-  `string | JwtPayload`, which 3c would trip over), and the JWT_SECRET
-  error message should point to `server/.env`, not `utils/jwt.ts`. The
-  controller now uses `import { z } from "zod"`.
-- (3b part 2 plan, as given) **JWT in an httpOnly cookie.** Tested in scratch
-  2026-10-30: jsonwebtoken 9.0.3 + @types/jsonwebtoken 9.0.10; the default
-  import `import jwt from "jsonwebtoken"` works. The user writes
-  `src/utils/jwt.ts`: reads `JWT_SECRET` (fail fast), exports
-  `TokenPayload = { sub: string; role: string }`, `signToken` (1 day) and
-  `verifyToken` (used in 3c). **TypeScript gotcha found:** narrowing a
-  module-level `const` with `if (!x) throw` does NOT carry into a function
-  declaration below it (TS2769 on `jwt.sign`); fix by copying it into
-  `const JWT_SECRET: string = secret` after the check. Login then signs
-  `{ sub: String(user.id), role: user.role }` and calls
-  `res.cookie("token", ...)` with `httpOnly`, `sameSite: "lax"`,
-  `secure: process.env.NODE_ENV === "production"` and `maxAge` 1 day.
-  Verified: 200 sets `Set-Cookie: token=...; HttpOnly; SameSite=Lax;
-Max-Age=86400`, a wrong password sets no cookie, the payload is readable
-  base64 (no secrets in it), a tampered token fails with "invalid
-  signature". The secret is generated with
-  `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
-- 3c. `GET /api/v1/auth/me`, auth middleware, `requireRole("admin")`. Add
-  a JSON error-handling middleware around here: malformed JSON currently
-  gets Express's default HTML error page with a stack trace.
+- **3b part 2. JWT in an httpOnly cookie: done** (2026-10-30, `d199b7f`).
+  `src/utils/jwt.ts`: `JWT_SECRET` from `server/.env` (fail fast),
+  `TokenPayload = { sub: string; role: string }`, `signToken` (1 day),
+  `verifyToken` (`as TokenPayload`). Login sets cookie `token` with
+  `httpOnly`, `sameSite: "lax"`, `secure` in production, `maxAge` 1 day;
+  no cookie on failure. TypeScript lesson: an `if (!x) throw` check at
+  module level doesn't carry into a function declaration, so copy it into
+  `const JWT_SECRET: string = secret` after the check.
+- **3c part 1 (now): who am I?** Tested in scratch 2026-10-30
+  (cookie-parser 1.4.7 + @types/cookie-parser). The user writes:
+  `app.use(cookieParser())` after `express.json()`;
+  `src/types/express.d.ts` (declaration merging:
+  `declare global { namespace Express { interface Request { user?: TokenPayload } } }`
+  with `import type { TokenPayload }` so the file is a module);
+  `src/middleware/auth.middleware.ts` → `requireAuth`: no
+  `req.cookies.token` → 401 "Not logged in"; `verifyToken` in try/catch,
+  failure → 401 "Session expired or invalid"; success sets `req.user`
+  and calls `next()`; `findUserById` in the user service (same SELECT +
+  JOIN, no `password_hash`); controller `me` loads the user fresh from the
+  DB by `Number(req.user.sub)` and returns 401 if the user is gone or
+  deactivated (so a deactivated account loses access even with a valid
+  token); route `router.get("/me", requireAuth, me)`. Verified: no cookie
+  401, valid cookie 200 `{ user }`, tampered or garbage token 401, user
+  deactivated after login 401, `/api/health` unaffected.
+  User's version reviewed 2026-10-30: works (their curl: 200 / 401 /
+  401), typecheck clean, not committed yet. Fixes asked for before the
+  commit: `findUserById` selects `u.id, u.id` instead of `u.id, u.email`
+  (so `/me` returned no email; TypeScript can't catch it because
+  `pool.query<T>` is a promise about the rows, like `as`, not a check);
+  `express.d.ts` imports `../utils/jwt.ts` → use `.js` like every other
+  import; `const token: string = req.cookies.token` should be
+  `string | undefined` (cookies are `any`); `server/cookies.txt` (curl's
+  cookie jar, holds a valid token) is untracked: delete it and add
+  `cookies.txt` to the root `.gitignore`.
+- 3c part 2: JSON error handler (malformed JSON currently gets Express's
+  default HTML page with a stack trace; `err.type === "entity.parse.failed"`
+  → 400) and a JSON 404 for unknown `/api` routes.
+- `requireRole("admin")` moves to step 4, where the first admin-only route
+  (the users list) needs it.
 - 3d. `POST /api/v1/auth/logout`.
 - 3e. Client: React Router, login page, protected admin area.
 

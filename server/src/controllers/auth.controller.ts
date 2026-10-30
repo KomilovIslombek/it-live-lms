@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
-import { findUserByEmail } from "../services/user.service.js";
+import { findUserByEmail, findUserById } from "../services/user.service.js";
 import bcrypt from "bcryptjs";
 import { loginSchema } from "../schemas/auth.schema.js";
 import { signToken } from "../utils/jwt.js";
@@ -52,5 +52,25 @@ export async function login(req: Request, res: Response) {
 
   return res.status(200).json({
     user: safeUser,
+  });
+}
+
+export async function me(req: Request, res: Response) {
+  if (!req.user) {
+    return res.status(401).json({
+      error: "Session expired or invalid",
+    });
+  }
+
+  const user = await findUserById(Number(req.user.sub));
+
+  if (!user || !user.status) {
+    return res.status(401).json({
+      error: "Session expired or invalid",
+    });
+  }
+
+  return res.status(200).json({
+    user,
   });
 }
