@@ -82,6 +82,10 @@ Vite, some Tailwind and shadcn. Docker: theory from videos only.
   themselves; Claude must not change security settings. Workaround if it's
   not set: `npm.cmd`. Claude's own PowerShell runs with Bypass, so it
   doesn't see this error.
+- Starting a work session: Docker Desktop must be running; the database
+  container then starts by itself (`restart: unless-stopped`). Check with
+  `docker compose ps`. Run the server/client dev servers only when a step
+  needs them; scripts like `npm run db:seed` only need the database.
 - Claude's Bash tool also has the old PATH: prefix commands with
   `export PATH="/c/Users/i7/AppData/Local/Programs/DockerDesktop/resources/bin:$PATH"`.
 - `postgres:18` image: mount the data volume at `/var/lib/postgresql`, not
