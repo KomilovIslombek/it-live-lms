@@ -48,50 +48,48 @@ scratch folder first, and reviews.
   `cookies.txt` (curl's cookie jar) is in the root `.gitignore`. Lesson
   from the review: `pool.query<T>` and `as` are promises to TypeScript,
   not checks; a SELECT typo (`u.id, u.id`) passed the type-check.
-- **3c part 2 (now): JSON errors.** Tested in scratch 2026-10-30. The user
-  writes `src/middleware/error.middleware.ts`: `notFound(_req, res)` →
-  404 `{ error: "Not found" }`, mounted as `app.use("/api", notFound)`
-  after all routes; `errorHandler: ErrorRequestHandler`
-  (`(err: unknown, _req, res, _next)`, all 4 parameters required, mounted
-  last): narrow `unknown` with `typeof err === "object" && err !== null &&
-"type" in err && err.type === "entity.parse.failed"` → 400
-  `{ error: "Invalid JSON" }`; anything else → `console.error(err)` and
-  500 `{ error: "Internal server error" }` (never send `err.message` or
-  the stack to the client). Verified: broken JSON 400 JSON, unknown route
-  and wrong method 404, login and health unaffected, and a database
-  failure during login → 500 JSON instead of an HTML page. Express 5
-  passes errors from `async` handlers to the error handler by itself, so
-  controllers need no try/catch for unexpected errors.
-  User's version reviewed 2026-10-30: correct (narrowing, order in
-  `app.ts`, typecheck clean), but **`console.error(err)` is missing**
-  before the 500, so real errors would vanish silently. Not committed
-  yet.
-- **Postman (added 2026-10-30, at the user's request).** Claude wrote
-  `postman/it-live-lms.postman_collection.json` (Health; Auth: Login, Me,
-  Me without a cookie, Me with an invalid token; Errors: wrong password,
-  unknown email, invalid body, broken JSON, unknown route; 21 tests) and
-  `postman/local.postman_environment.json` (secrets left empty). Run with
-  the Postman CLI against the user's current code on a throwaway DB: 10
-  requests, 21 assertions, 0 failed. README has an API table and import
-  steps. Not committed yet; goes in with 3c part 2. From now on, every
-  new endpoint gets a request with tests in this collection. The user's
-  own import attempt went wrong, so at their request (2026-10-30) Claude
-  connected via the Postman MCP connector and created the same collection
-  and environment in their **menTalabaman** workspace (ids in
-  CLAUDE.md). Verified all 10 requests, tests and `disableCookies` came
-  through. The user still fills in `adminEmail` / `adminPassword` in the
-  environment. Found afterwards: the user's Postman app had linked the
-  repo's `postman/` folder to "My Workspace" as a local workspace and
-  wrote `postman/.postman/resources.yaml` plus a converted YAML copy under
-  `postman/postman/` (collections, environment with empty email/password,
-  globals). Untracked, no secrets, duplicates of the two JSON files, and
-  Prettier flags one of them. Deleted with the user's OK (2026-10-30), and
-  both folders are now in `.gitignore` in case the app writes them again.
-  The user also added the missing `console.error(err)`; typecheck clean.
-  Ready to commit (3c part 2 + Postman), the user commits.
+- **3c part 2. JSON errors: done** (2026-10-30, `4a1e6d6`).
+  `src/middleware/error.middleware.ts`: `notFound` (404 JSON for unknown
+  `/api` routes) and `errorHandler: ErrorRequestHandler` (broken JSON →
+  400 "Invalid JSON", else `console.error(err)` + 500 "Internal server
+  error"), mounted last in `app.ts`. Lesson: narrowing `unknown` step by
+  step. Claude checked the 500 path on a copy of the committed code
+  (2026-10-30): with the database stopped, login and `/me` answer 500
+  JSON, `/api/health` 503, the server stays up and logs ECONNREFUSED, and
+  everything works again once the database is back.
+- **Postman** (2026-10-30, `4a1e6d6`): `postman/it-live-lms.postman_collection.json`
+  and `postman/local.postman_environment.json` in the repo; the same
+  collection and environment in the user's Postman cloud (menTalabaman
+  workspace, ids in CLAUDE.md). Folders the Postman app writes when it
+  links this folder (`postman/postman/`, `postman/.postman/`) are
+  gitignored. Every new endpoint gets a request with tests, and the cloud
+  copy is updated after the repo file.
+- **3d. Logout: done** (2026-10-30, not committed yet; the user commits).
+  The user's code matches the plan below, typecheck clean. Claude added
+  "Logout" and "Me after logout → 401" at the **end** of the Auth folder
+  (cookie-less requests before them don't care about order) in the repo
+  file and in the cloud copy (`createCollectionRequest` into folder
+  `75b80d4d-303c-42ad-99b0-05967bbf9661`). Full run on a copy of the
+  user's code: 12 requests, 24 assertions, 0 failed. The cloud Auth folder
+  also has the user's own test-less "Logout" (id
+  `97473ca5-a5d5-4a28-b3be-24dd18b14499`), a duplicate; asked before
+  deleting it. README API table has the logout row.
+- (3d plan, as given) Tested on a copy 2026-10-30: controller
+  `logout(_req, res)` calls `res.clearCookie("token", { httpOnly: true,
+sameSite: "lax", secure: NODE_ENV === "production" })` (same options as
+  when it was set; no `maxAge`, Express 5 ignores it there) and answers
+  `res.status(204).end()`; route `router.post("/logout", logout)` with
+  **no** `requireAuth` (logging out twice or while logged out is
+  harmless, still 204). Verified: `Set-Cookie: token=; Expires=Thu, 01 Jan
+1970 ...; HttpOnly; SameSite=Lax`, then `/me` 401. Postman additions
+  tested with the CLI (12 requests, 24 assertions, 0 failed): in Auth,
+  after "Me (logged in)", add "Logout" (204, `pm.cookies.has("token")`
+  false) and "Me after logout → 401". Claude adds them to the repo file
+  and the cloud copy once the user's logout is in. Teach the limit of
+  stateless JWTs: a copied token stays valid until it expires; real
+  revocation needs a server-side list (later, if ever).
 - `requireRole("admin")` moves to step 4, where the first admin-only route
   (the users list) needs it.
-- 3d. `POST /api/v1/auth/logout`.
 - 3e. Client: React Router, login page, protected admin area.
 
 Small things for later: lowercase emails before saving and looking them

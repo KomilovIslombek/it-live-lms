@@ -69,11 +69,12 @@ Express server, so the browser only talks to one address.
 
 ## API
 
-| Method | Path                 | Auth   | Description                                                |
-| ------ | -------------------- | ------ | ---------------------------------------------------------- |
-| GET    | `/api/health`        | -      | Server and database status (200, or 503 if the DB is down) |
-| POST   | `/api/v1/auth/login` | -      | Email + password; sets an httpOnly `token` cookie (1 day)  |
-| GET    | `/api/v1/auth/me`    | cookie | The logged-in user                                         |
+| Method | Path                  | Auth   | Description                                                |
+| ------ | --------------------- | ------ | ---------------------------------------------------------- |
+| GET    | `/api/health`         | -      | Server and database status (200, or 503 if the DB is down) |
+| POST   | `/api/v1/auth/login`  | -      | Email + password; sets an httpOnly `token` cookie (1 day)  |
+| GET    | `/api/v1/auth/me`     | cookie | The logged-in user                                         |
+| POST   | `/api/v1/auth/logout` | -      | Deletes the `token` cookie (204)                           |
 
 Errors are always JSON: `{ "error": "..." }`, plus `details` for
 validation errors (400).

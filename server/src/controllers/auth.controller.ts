@@ -74,3 +74,13 @@ export async function me(req: Request, res: Response) {
     user,
   });
 }
+
+export function logout(_req: Request, res: Response) {
+  res.clearCookie("token", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
+
+  return res.status(204).end();
+}

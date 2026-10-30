@@ -41,7 +41,12 @@
           "name": "Login",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
@@ -95,7 +100,9 @@
         },
         {
           "name": "Me without a cookie → 401",
-          "protocolProfileBehavior": { "disableCookies": true },
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/api/v1/auth/me",
@@ -118,10 +125,17 @@
         },
         {
           "name": "Me with an invalid token → 401",
-          "protocolProfileBehavior": { "disableCookies": true },
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
           "request": {
             "method": "GET",
-            "header": [{ "key": "Cookie", "value": "token=not-a-real-token" }],
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "token=not-a-real-token"
+              }
+            ],
             "url": "{{baseUrl}}/api/v1/auth/me",
             "description": "Sends a fake token. The signature check fails, so the server answers 401."
           },
@@ -139,6 +153,47 @@
               }
             }
           ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/auth/logout",
+            "description": "Deletes the `token` cookie. Answers 204 No Content, even when nobody was logged in."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 204\", () => pm.response.to.have.status(204));",
+                  "pm.test(\"Removes the token cookie\", () => {",
+                  "  pm.expect(pm.cookies.has(\"token\")).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Me after logout → 401",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/auth/me",
+            "description": "Same request as Me (logged in), right after Logout: the cookie is gone, so the answer is 401."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -149,7 +204,12 @@
           "name": "Login with a wrong password → 401",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"definitely-the-wrong-password\"\n}"
@@ -175,7 +235,12 @@
           "name": "Login with an unknown email → 401",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"nobody@example.com\",\n  \"password\": \"whatever123\"\n}"
@@ -201,7 +266,12 @@
           "name": "Login with an invalid body → 400",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"not-an-email\"\n}"
@@ -229,8 +299,16 @@
           "name": "Broken JSON → 400",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{bad" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{bad"
+            },
             "url": "{{baseUrl}}/api/v1/auth/login",
             "description": "The body isn't valid JSON. The error handler must answer with JSON, not Express's HTML error page."
           },
