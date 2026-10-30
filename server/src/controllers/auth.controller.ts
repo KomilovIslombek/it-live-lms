@@ -3,6 +3,7 @@ import { z } from "zod";
 import { findUserByEmail } from "../services/user.service.js";
 import bcrypt from "bcryptjs";
 import { loginSchema } from "../schemas/auth.schema.js";
+import { signToken } from "../utils/jwt.js";
 
 export async function login(req: Request, res: Response) {
   const parsed = loginSchema.safeParse(req.body);
@@ -39,6 +40,15 @@ export async function login(req: Request, res: Response) {
   }
 
   const { password_hash: _passwordHash, ...safeUser } = user;
+
+  const token = signToken({ sub: String(user.id), role: user.role });
+
+  res.cookie("token", token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 24 * 60 * 60 * 1000,
+  });
 
   return res.status(200).json({
     user: safeUser,

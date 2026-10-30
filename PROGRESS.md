@@ -15,8 +15,7 @@ scratch folder first, and reviews.
   `ON CONFLICT DO NOTHING` makes it re-runnable. Lessons from the review:
   `await` inside a plain `for` (not `for await`), the id is in
   `result.rows[0]`, not the result object.
-- **3b part 1. Login without a token: done** (2026-10-30, not committed
-  yet; the user commits). `POST /api/v1/auth/login`. Structure:
+- **3b part 1. Login without a token: done** (2026-10-30, `b7f6eae`). `POST /api/v1/auth/login`. Structure:
   `src/app.ts` (app, `express.json()`, `/api/health`, mounts
   `/api/v1/auth`), `src/index.ts` (only `listen`), `routes/auth.routes.ts`,
   `controllers/auth.controller.ts`, `schemas/auth.schema.ts`
@@ -30,11 +29,31 @@ scratch folder first, and reviews.
   clean. Lessons from the review: `import type` for types, check `null`
   before using a value, `return` on every early response, one response
   shape.
-- **3b part 2 (next): JWT in an httpOnly cookie.** Recommended:
-  `jsonwebtoken`, one token with a 1-day lifetime, no refresh token in
-  v1; cookie `httpOnly`, `sameSite: "lax"`, `secure` in production;
-  `JWT_SECRET` in `server/.env`. Test it in scratch before giving the
-  step.
+- **3b part 2: done 2026-10-30** (user's code reviewed, typecheck clean,
+  their curl output shows `Set-Cookie: token=...; HttpOnly; SameSite=Lax;
+Max-Age=86400` on success and no cookie on 401; not committed yet). Two
+  fixes asked for before the commit: `verifyToken` must return
+  `jwt.verify(...) as TokenPayload` (otherwise the type is
+  `string | JwtPayload`, which 3c would trip over), and the JWT_SECRET
+  error message should point to `server/.env`, not `utils/jwt.ts`. The
+  controller now uses `import { z } from "zod"`.
+- (3b part 2 plan, as given) **JWT in an httpOnly cookie.** Tested in scratch
+  2026-10-30: jsonwebtoken 9.0.3 + @types/jsonwebtoken 9.0.10; the default
+  import `import jwt from "jsonwebtoken"` works. The user writes
+  `src/utils/jwt.ts`: reads `JWT_SECRET` (fail fast), exports
+  `TokenPayload = { sub: string; role: string }`, `signToken` (1 day) and
+  `verifyToken` (used in 3c). **TypeScript gotcha found:** narrowing a
+  module-level `const` with `if (!x) throw` does NOT carry into a function
+  declaration below it (TS2769 on `jwt.sign`); fix by copying it into
+  `const JWT_SECRET: string = secret` after the check. Login then signs
+  `{ sub: String(user.id), role: user.role }` and calls
+  `res.cookie("token", ...)` with `httpOnly`, `sameSite: "lax"`,
+  `secure: process.env.NODE_ENV === "production"` and `maxAge` 1 day.
+  Verified: 200 sets `Set-Cookie: token=...; HttpOnly; SameSite=Lax;
+Max-Age=86400`, a wrong password sets no cookie, the payload is readable
+  base64 (no secrets in it), a tampered token fails with "invalid
+  signature". The secret is generated with
+  `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
 - 3c. `GET /api/v1/auth/me`, auth middleware, `requireRole("admin")`. Add
   a JSON error-handling middleware around here: malformed JSON currently
   gets Express's default HTML error page with a stack trace.
