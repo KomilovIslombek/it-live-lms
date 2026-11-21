@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "IT Live LMS API",
-    "description": "Requests for the IT Live LMS Express API, with tests on every request.\n\nSetup: import this collection and `local.postman_environment.json`, select the **IT Live LMS (local)** environment, and fill in `adminPhone` and `adminPassword` (the values from `server/.env`) as *current values*. Start the database (`docker compose up -d`) and the server (`cd server && npm run dev`).\n\nRun the whole collection with **Run collection**, or send requests one by one. Postman keeps the login cookie like a browser does, so **Login** must run before **Me**.",
+    "description": "Requests for the IT Live LMS Express API, with tests on every request.\n\nSetup: import this collection and `local.postman_environment.json`, select the **IT Live LMS (local)** environment, and fill in `adminPhone` and `adminPassword` (the values from `server/.env`) as *current values*. Start the database (`docker compose up -d`) and the server (`cd server && npm run dev`).\n\nRun the whole collection with **Run collection**, or send requests one by one. Postman keeps the login cookie like a browser does, so **Login** must run before **Me**.\n\nSource of truth: `postman/it-live-lms.postman_collection.json` in https://github.com/KomilovIslombek/it-live-lms",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [

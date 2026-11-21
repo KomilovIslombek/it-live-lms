@@ -1,4 +1,5 @@
 import type { ErrorRequestHandler, Request, Response } from "express";
+import { logError } from "../utils/logger.js";
 
 export function notFound(_req: Request, res: Response) {
   return res.status(404).json({
@@ -8,7 +9,7 @@ export function notFound(_req: Request, res: Response) {
 
 export const errorHandler: ErrorRequestHandler = (
   err: unknown,
-  _req,
+  req,
   res,
   _next,
 ) => {
@@ -21,6 +22,6 @@ export const errorHandler: ErrorRequestHandler = (
     return res.status(400).json({ error: "Invalid JSON" });
   }
 
-  console.error(err);
+  logError(`500 ${req.method} ${req.originalUrl}`, err);
   return res.status(500).json({ error: "Internal server error" });
 };

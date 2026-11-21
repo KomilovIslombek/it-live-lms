@@ -16,21 +16,31 @@ mode below): for Tuesday, finish the **admin backend API** (Postman-tested,
 same scope as the teacher's); the React frontend (old step 3e) comes
 after the exam.
 
-0. **Login by phone + password: done 2026-11-21** (not committed yet;
-   the user commits). As the Figma login screen shows ("Telefon
-   raqamingiz" with `+998`). The user wrote: `loginSchema.phone`
-   (`/^\+998\d{9}$/`), `findUserByPhone`, 401 "Invalid phone or
-   password", and the seed now uses `SEED_ADMIN_PHONE` with
-   `ON CONFLICT (phone) DO NOTHING` (they replaced email completely). So
-   the real DB has two admins: **#1** (email only, from October, can't
-   log in now) and **#3** (phone). The user was asked to delete #1
-   themselves in pgAdmin as practice. `SEED_ADMIN_EMAIL` in
-   `server/.env` / `.env.example` is now unused. `/me` returns `phone`
-   instead of `email`. Claude switched the Postman collection and
-   environment to `adminPhone` (local files only; the cloud copy still
-   needs a sync once the Postman connector is signed in again). Full run
-   on a copy of the user's code: 12 requests, 24 assertions, 0 failed;
-   seed twice → "created", then "already exists".
+0. **Login by phone + password: done 2026-11-21** (`8677d87`, pushed).
+   As the Figma login screen shows ("Telefon raqamingiz" with `+998`).
+   The user wrote: `loginSchema.phone` (`/^\+998\d{9}$/`),
+   `findUserByPhone`, 401 "Invalid phone or password", and the seed now
+   uses `SEED_ADMIN_PHONE` with `ON CONFLICT (phone) DO NOTHING` (they
+   replaced email completely). So the real DB has two admins: **#1**
+   (email only, from October, can't log in now) and **#3** (phone). The
+   user was asked to delete #1 themselves in pgAdmin as practice
+   (`DELETE FROM users WHERE id = 1;`). `/me` returns `phone` instead of
+   `email`. Postman collection and environment use `adminPhone`; the
+   cloud copy was synced with `putCollection` on 2026-11-21 (same item
+   ids) and the user's duplicate Logout is gone. Full run on a copy: 12
+   requests, 24 assertions, 0 failed.
+   **Also done: error log file (2026-11-21, by Claude)** (user asked "внедри
+   это сам"; not committed yet). `server/src/utils/logger.ts` →
+   `logError(context, err)`: prints to the terminal and appends to
+   `server/logs/error.log` (path from `import.meta.url`, so it doesn't
+   depend on the cwd; Tashkent time; not awaited, a write failure only
+   prints). Used in `errorHandler` (`500 METHOD originalUrl`) and in the
+   Pool's `error` listener. `logs/` is gitignored. Never log request
+   bodies (passwords). Tested on a scratch copy with the DB stopped: 500
+   JSON, two entries in the file (idle client 57P01 and the 500 with the
+   stack), password not in the file, health 200 after the DB came back.
+   Later: rotation or pino before the deploy. Explanation for the user:
+   `docs/how-it-works.md` (Russian).
 1. `requireRole("admin")` + users: list by role with search and
    pagination, get one, create (bcrypt), update, activate/deactivate.
 2. `GET /api/v1/admin/stats` (counts for the dashboard cards).
@@ -48,9 +58,8 @@ courses, sections, lessons, materials) following the same patterns and
 explains each module so the user can defend it at the exam. This
 overrides strict teaching mode for those modules only.
 
-Open: delete the user's duplicate test-less "Logout" in the Postman cloud
-collection (user said yes on 2026-11-21), but the Postman connector's
-sign-in had expired; it needs `/mcp` → postman → sign in again.
+**Next:** step 1, `requireRole("admin")` and the users module (the user
+writes it with Claude's help).
 
 ## Step 3 log (backend auth, done)
 

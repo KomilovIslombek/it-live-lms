@@ -37,8 +37,11 @@ server/                  Express API
   src/services/          SQL queries
   src/schemas/           request validation (zod)
   src/middleware/        auth check, JSON errors
+  src/utils/             JWT helpers, error logger
   src/scripts/seed.ts    roles and the first admin
+  logs/error.log         server errors (created on the first error, not in git)
 docs/database/           database schema (source of truth)
+docs/how-it-works.md     how the project works, in Russian
 postman/                 Postman collection and environment
 docker-compose.yml       PostgreSQL for local development
 ```
@@ -77,7 +80,10 @@ Express server, so the browser only talks to one address.
 | POST   | `/api/v1/auth/logout` | -      | Deletes the `token` cookie (204)                                              |
 
 Errors are always JSON: `{ "error": "..." }`, plus `details` for
-validation errors (400).
+validation errors (400). The client gets only "Internal server error" for
+a 500; the real cause goes to the terminal and to `server/logs/error.log`
+(time in Tashkent, method and path, stack trace; request bodies are never
+logged).
 
 ### Testing the API with Postman
 
@@ -121,8 +127,9 @@ starts with an empty volume.
       TypeScript client, connected through a proxy
 - [x] API connected to the database (`GET /api/health` reports server and
       database status)
-- [ ] Login and roles
-- [ ] Admin: users
+- [x] Login by phone and password (JWT in an httpOnly cookie), who-am-I,
+      logout, JSON errors with an error log file
+- [ ] Admin: users and roles
 - [ ] Admin: courses, sections, lessons, materials
 - [ ] Student: my courses, lessons, progress
 - [ ] Mentor: assignments, exams, grading, results

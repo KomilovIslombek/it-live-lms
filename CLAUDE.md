@@ -156,3 +156,15 @@ Vite, some Tailwind and shadcn. Docker: theory from videos only.
   separate local Postgres.
 - Prettier runs from the repo root (`npm run format`, `format:check`).
   Run it on any file Claude writes before handing it over.
+- Server errors: use `logError(context, err)` from `src/utils/logger.ts`
+  instead of `console.error` for anything that should be kept (it prints
+  and appends to `server/logs/error.log`, gitignored). Never pass request
+  bodies or passwords to it. To see what went wrong in the user's server,
+  read that file.
+- `docs/how-it-works.md` is the user's Russian exam cheat sheet (stack,
+  request flow, login, errors, Docker, pgAdmin, Postman). Update it when
+  a new module changes the picture (e.g. `requireRole`, the admin
+  routes).
+- Postman cloud updates: `putCollection` needs an `id` on every top-level
+  item; pass the existing item ids (bare UUID, without the `15896440-`
+  owner prefix) to keep them, and items left out are deleted.

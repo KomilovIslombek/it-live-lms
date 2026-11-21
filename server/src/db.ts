@@ -1,4 +1,5 @@
 import pg from "pg";
+import { logError } from "./utils/logger.js";
 
 const { Pool } = pg;
 
@@ -9,7 +10,7 @@ if (!DATABASE_URL)
 const pool = new Pool({ connectionString: DATABASE_URL });
 
 pool.on("error", (err) => {
-  console.error("Idle PostgreSQL client error: ", err.message);
+  logError("Idle PostgreSQL client error", err);
 });
 
 export default pool;
