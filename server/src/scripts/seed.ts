@@ -1,11 +1,11 @@
 import bcrypt from "bcryptjs";
 import pool from "../db.js";
 
-const SEED_ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL;
+const SEED_ADMIN_PHONE = process.env.SEED_ADMIN_PHONE;
 const SEED_ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD;
-if (!SEED_ADMIN_EMAIL || !SEED_ADMIN_PASSWORD)
+if (!SEED_ADMIN_PHONE || !SEED_ADMIN_PASSWORD)
   throw new Error(
-    "SEED_ADMIN_EMAIL or SEED_ADMIN_PASSWORD is not set. Check server/.env",
+    "SEED_ADMIN_PHONE or SEED_ADMIN_PASSWORD is not set. Check server/.env",
   );
 
 const roles = ["admin", "mentor", "assistant", "student"];
@@ -27,9 +27,9 @@ if (!adminRoleId) {
 const hashedAdminPassword = await bcrypt.hash(SEED_ADMIN_PASSWORD, 12);
 
 const result = await pool.query(
-  `INSERT INTO users (role_id, full_name, email, password_hash) 
-    VALUES($1, $2, $3, $4) ON CONFLICT (email) DO NOTHING`,
-  [adminRoleId, "admin", SEED_ADMIN_EMAIL, hashedAdminPassword],
+  `INSERT INTO users (role_id, full_name, phone, password_hash) 
+    VALUES($1, $2, $3, $4) ON CONFLICT (phone) DO NOTHING`,
+  [adminRoleId, "admin", SEED_ADMIN_PHONE, hashedAdminPassword],
 );
 
 if (result.rowCount === 1) {

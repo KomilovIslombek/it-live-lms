@@ -130,7 +130,7 @@ Vite, some Tailwind and shadcn. Docker: theory from videos only.
   `islambek445`, id 15896440): collection **IT Live LMS API**
   (uid `15896440-6b558a03-c646-4372-95c8-e6f9edc16039`) and environment
   **IT Live LMS (local)** (uid
-  `15896440-74d41d1b-2c71-4e11-99da-c270a30c3c56`, `adminEmail` /
+  `15896440-74d41d1b-2c71-4e11-99da-c270a30c3c56`, `adminPhone` /
   `adminPassword` left empty for the user) in the user's **menTalabaman**
   workspace (`c54287d8-0275-4b7b-b9e9-427f9cb68d84`), where their other
   project collections live. The repo file is the source of truth: after
@@ -139,14 +139,20 @@ Vite, some Tailwind and shadcn. Docker: theory from videos only.
   user types it.
 - API tests: `postman/it-live-lms.postman_collection.json` (v2.1, tests on
   every request) + `postman/local.postman_environment.json` (`baseUrl`,
-  empty `adminEmail` / `adminPassword`; never commit real values). Postman
+  empty `adminPhone` / `adminPassword`; never commit real values). Postman
   CLI 1.73 runs it without logging in (it only warns that it can't
   publish results). To verify server changes without touching the user's
   setup: copy `server/` to the scratchpad, point it at a throwaway
   `initdb` cluster, seed it, start it on a spare port, then
   `postman collection run ... --env-var baseUrl=http://localhost:<port>
---env-var adminEmail=... --env-var adminPassword=...`. Add a request
+--env-var adminPhone=... --env-var adminPassword=...`. Add a request
   with tests for every new endpoint. "Me without a cookie" uses
   `protocolProfileBehavior.disableCookies`, which the CLI respects.
+- pgAdmin 4 came with the local PostgreSQL 18 install
+  (`C:\Program Files\PostgreSQL\18\pgAdmin 4`). To view the project's
+  Docker database in it: register a server with host `localhost`, port
+  **5433**, maintenance database `it_live_lms`, user `lms`, and the
+  password from the root `.env` (the user types it). Port 5432 is the
+  separate local Postgres.
 - Prettier runs from the repo root (`npm run format`, `format:check`).
   Run it on any file Claude writes before handing it over.

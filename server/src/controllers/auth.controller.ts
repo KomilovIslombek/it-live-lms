@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
-import { findUserByEmail, findUserById } from "../services/user.service.js";
+import { findUserById, findUserByPhone } from "../services/user.service.js";
 import bcrypt from "bcryptjs";
 import { loginSchema } from "../schemas/auth.schema.js";
 import { signToken } from "../utils/jwt.js";
@@ -15,10 +15,10 @@ export async function login(req: Request, res: Response) {
     });
   }
 
-  const user = await findUserByEmail(parsed.data.email);
+  const user = await findUserByPhone(parsed.data.phone);
   if (!user) {
     return res.status(401).json({
-      error: "Invalid email or password",
+      error: "Invalid phone or password",
     });
   }
 
@@ -29,7 +29,7 @@ export async function login(req: Request, res: Response) {
 
   if (!comparedPassword) {
     return res.status(401).json({
-      error: "Invalid email or password",
+      error: "Invalid phone or password",
     });
   }
 

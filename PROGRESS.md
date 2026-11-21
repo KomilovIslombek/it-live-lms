@@ -1,10 +1,60 @@
 # Progress
 
-Last updated: 2026-10-30
+Last updated: 2026-11-21
 
-## Current step
+## Deadline (set 2026-11-21)
 
-**Step 3: login and roles, in progress.** Small pieces, one at a time:
+The user came back after ~3 weeks of video-editing work (they now speak
+Russian in chat; answer in Russian). **Tuesday 2026-11-24: exam + the
+teacher reviews the admin dashboard.** The teacher built only a backend
+(Express + PostgreSQL via pgAdmin, tested in Postman, no frontend), fast
+and not polished. The user wants the admin dashboard finished by then,
+consistency over perfection.
+
+Plan agreed 2026-11-21 (working
+mode below): for Tuesday, finish the **admin backend API** (Postman-tested,
+same scope as the teacher's); the React frontend (old step 3e) comes
+after the exam.
+
+0. **Login by phone + password: done 2026-11-21** (not committed yet;
+   the user commits). As the Figma login screen shows ("Telefon
+   raqamingiz" with `+998`). The user wrote: `loginSchema.phone`
+   (`/^\+998\d{9}$/`), `findUserByPhone`, 401 "Invalid phone or
+   password", and the seed now uses `SEED_ADMIN_PHONE` with
+   `ON CONFLICT (phone) DO NOTHING` (they replaced email completely). So
+   the real DB has two admins: **#1** (email only, from October, can't
+   log in now) and **#3** (phone). The user was asked to delete #1
+   themselves in pgAdmin as practice. `SEED_ADMIN_EMAIL` in
+   `server/.env` / `.env.example` is now unused. `/me` returns `phone`
+   instead of `email`. Claude switched the Postman collection and
+   environment to `adminPhone` (local files only; the cloud copy still
+   needs a sync once the Postman connector is signed in again). Full run
+   on a copy of the user's code: 12 requests, 24 assertions, 0 failed;
+   seed twice → "created", then "already exists".
+1. `requireRole("admin")` + users: list by role with search and
+   pagination, get one, create (bcrypt), update, activate/deactivate.
+2. `GET /api/v1/admin/stats` (counts for the dashboard cards).
+3. Categories, levels, courses CRUD.
+4. Sections → lessons → materials CRUD (files as URLs for now; real
+   uploads later).
+5. If time: payments list, enrollments, exams.
+6. Postman requests with tests for each, then a short "how to run"
+   for the teacher (README + Postman import).
+
+**Working mode until the exam: "mix" (user's choice, 2026-11-21).** The
+user writes the phone login and the users module with Claude's help;
+Claude writes the remaining repetitive CRUD (stats, categories, levels,
+courses, sections, lessons, materials) following the same patterns and
+explains each module so the user can defend it at the exam. This
+overrides strict teaching mode for those modules only.
+
+Open: delete the user's duplicate test-less "Logout" in the Postman cloud
+collection (user said yes on 2026-11-21), but the Postman connector's
+sign-in had expired; it needs `/mcp` → postman → sign in again.
+
+## Step 3 log (backend auth, done)
+
+**Step 3: login and roles.** Small pieces, one at a time:
 the user writes the code; Claude explains, tests the approach in a
 scratch folder first, and reviews.
 
@@ -64,7 +114,7 @@ scratch folder first, and reviews.
   links this folder (`postman/postman/`, `postman/.postman/`) are
   gitignored. Every new endpoint gets a request with tests, and the cloud
   copy is updated after the repo file.
-- **3d. Logout: done** (2026-10-30, not committed yet; the user commits).
+- **3d. Logout: done** (2026-10-30, `888410e`).
   The user's code matches the plan below, typecheck clean. Claude added
   "Logout" and "Me after logout → 401" at the **end** of the Auth folder
   (cookie-less requests before them don't care about order) in the repo
@@ -106,8 +156,8 @@ Status: done / in progress / next / later
 2. [done] Project setup: git + GitHub, Docker Postgres, Express +
    TypeScript server connected to the database, React + Vite + TypeScript
    client connected through a proxy, Prettier
-3. [in progress] Login and roles (admin, mentor, assistant, student)
-4. [next] Admin manages users
+3. [done, backend] Login and roles (admin, mentor, assistant, student); the React login page moves after the exam
+4. [in progress, deadline 2026-11-24] Admin dashboard backend API (users, stats, courses, content)
 5. [next] **First deploy** to a VPS (moved here from step 2, see Decisions)
 6. [later] Admin manages courses → sections → lessons → materials
 7. [later] Student sees their courses and lessons, with progress
@@ -151,9 +201,10 @@ Steps 1–7 are v1: a deployed project the user can show.
   Migrations get introduced the first time the schema changes.
 - **First deploy after step 4** (user's choice, 2026-10-29): once login
   and the admin users list exist, so the live link shows something real.
-- **Login with email + password for v1** (the user's preference from
-  2026-10-24). Phone and OTP later. `users.email` and `users.phone` are
-  both still nullable in the schema.
+- **Login with phone + password** (2026-11-21, from the Figma login
+  screen; replaces the email + password decision from 2026-10-24). OTP
+  by SMS comes later. `users.email` and `users.phone` are both still
+  nullable in the schema.
 - Online-only school: no cash payments. A student can enroll in a course
   only once.
 - The mentor list's show-password "eye" won't be built; it becomes a

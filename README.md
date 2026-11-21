@@ -69,12 +69,12 @@ Express server, so the browser only talks to one address.
 
 ## API
 
-| Method | Path                  | Auth   | Description                                                |
-| ------ | --------------------- | ------ | ---------------------------------------------------------- |
-| GET    | `/api/health`         | -      | Server and database status (200, or 503 if the DB is down) |
-| POST   | `/api/v1/auth/login`  | -      | Email + password; sets an httpOnly `token` cookie (1 day)  |
-| GET    | `/api/v1/auth/me`     | cookie | The logged-in user                                         |
-| POST   | `/api/v1/auth/logout` | -      | Deletes the `token` cookie (204)                           |
+| Method | Path                  | Auth   | Description                                                                   |
+| ------ | --------------------- | ------ | ----------------------------------------------------------------------------- |
+| GET    | `/api/health`         | -      | Server and database status (200, or 503 if the DB is down)                    |
+| POST   | `/api/v1/auth/login`  | -      | Phone (`+998` + 9 digits) + password; sets an httpOnly `token` cookie (1 day) |
+| GET    | `/api/v1/auth/me`     | cookie | The logged-in user                                                            |
+| POST   | `/api/v1/auth/logout` | -      | Deletes the `token` cookie (204)                                              |
 
 Errors are always JSON: `{ "error": "..." }`, plus `details` for
 validation errors (400).
@@ -87,7 +87,7 @@ the error cases).
 
 1. In the Postman app: **Import** → select both files in `postman/`.
 2. Select the **IT Live LMS (local)** environment and fill in
-   `adminEmail` and `adminPassword` (the values from `server/.env`).
+   `adminPhone` and `adminPassword` (`SEED_ADMIN_PHONE` and `SEED_ADMIN_PASSWORD` from `server/.env`).
 3. With the database and server running, open the collection and click
    **Run**.
 
@@ -96,7 +96,7 @@ Or from the terminal with the [Postman CLI](https://learning.postman.com/docs/po
 ```bash
 postman collection run postman/it-live-lms.postman_collection.json \
   -e postman/local.postman_environment.json \
-  --env-var "adminEmail=you@example.com" --env-var "adminPassword=..."
+  --env-var "adminPhone=+998901234567" --env-var "adminPassword=..."
 ```
 
 ## Database
