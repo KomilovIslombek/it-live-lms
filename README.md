@@ -79,6 +79,24 @@ Express server, so the browser only talks to one address.
 | GET    | `/api/v1/auth/me`     | cookie | The logged-in user                                                            |
 | POST   | `/api/v1/auth/logout` | -      | Deletes the `token` cookie (204)                                              |
 
+Admin routes (cookie of a user with the `admin` role; 401 without a
+cookie, 403 for other roles). Each of `categories`, `levels` and
+`courses` has the same five routes:
+
+| Method | Path                       | Description                                                                                                                                           |
+| ------ | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/v1/admin/users`      | `?role=student&search=&page=1&limit=10` (role: admin, mentor, assistant or student; search by name or phone), returns `{ users, page, limit, total }` |
+| GET    | `/api/v1/admin/categories` | All categories with `courses_count` (same for `levels`)                                                                                               |
+| GET    | `/api/v1/admin/courses`    | `?search=&category_id=&level_id=&status=true\|false&page=1&limit=10`, returns `{ courses, page, limit, total }`                                       |
+| GET    | `/api/v1/admin/<name>/:id` | One item, 404 if missing                                                                                                                              |
+| POST   | `/api/v1/admin/<name>`     | Create (201). Category and level `slug` is made from the title if not sent                                                                            |
+| PATCH  | `/api/v1/admin/<name>/:id` | Change only the fields sent (200)                                                                                                                     |
+| DELETE | `/api/v1/admin/<name>/:id` | 204; 409 while courses use the category/level or the course has payments                                                                              |
+
+Course `price` is returned as a string (`"1200000.00"`): PostgreSQL
+`NUMERIC` is exact, and it stays exact in JSON. A duplicate slug answers
+409, and an unknown `category_id` / `level_id` answers 400 for that field.
+
 Errors are always JSON: `{ "error": "..." }`, plus `details` for
 validation errors (400). The client gets only "Internal server error" for
 a 500; the real cause goes to the terminal and to `server/logs/error.log`
@@ -129,8 +147,10 @@ starts with an empty volume.
       database status)
 - [x] Login by phone and password (JWT in an httpOnly cookie), who-am-I,
       logout, JSON errors with an error log file
-- [ ] Admin: users and roles
-- [ ] Admin: courses, sections, lessons, materials
+- [ ] Admin: users and roles (list with search and pagination done; get, create, update next)
+- [x] Admin: categories, levels and courses (CRUD with search, filters and
+      pagination)
+- [ ] Admin: sections, lessons, materials
 - [ ] Student: my courses, lessons, progress
 - [ ] Mentor: assignments, exams, grading, results
 - [ ] Payments, comments, dashboard stats, certificates, landing page

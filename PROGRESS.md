@@ -23,14 +23,14 @@ after the exam.
    uses `SEED_ADMIN_PHONE` with `ON CONFLICT (phone) DO NOTHING` (they
    replaced email completely). So the real DB has two admins: **#1**
    (email only, from October, can't log in now) and **#3** (phone). The
-   user was asked to delete #1 themselves in pgAdmin as practice
-   (`DELETE FROM users WHERE id = 1;`). `/me` returns `phone` instead of
+   user deleted #1 themselves in pgAdmin as practice (checked
+   2026-11-21: only #3 is left). `/me` returns `phone` instead of
    `email`. Postman collection and environment use `adminPhone`; the
    cloud copy was synced with `putCollection` on 2026-11-21 (same item
    ids) and the user's duplicate Logout is gone. Full run on a copy: 12
    requests, 24 assertions, 0 failed.
    **Also done: error log file (2026-11-21, by Claude)** (user asked "внедри
-   это сам"; not committed yet). `server/src/utils/logger.ts` →
+   это сам"; committed by the user as `cc43c78`). `server/src/utils/logger.ts` →
    `logError(context, err)`: prints to the terminal and appends to
    `server/logs/error.log` (path from `import.meta.url`, so it doesn't
    depend on the cwd; Tashkent time; not awaited, a write failure only
@@ -44,7 +44,27 @@ after the exam.
 1. `requireRole("admin")` + users: list by role with search and
    pagination, get one, create (bcrypt), update, activate/deactivate.
 2. `GET /api/v1/admin/stats` (counts for the dashboard cards).
-3. Categories, levels, courses CRUD.
+3. **Categories, levels, courses CRUD: written by Claude 2026-11-21, in
+   parallel with step 1 (user said "пиши параллельно"); not committed,
+   not mounted yet.** Files: `schemas/{common,category,level,course}.schema.ts`,
+   `services/`, `controllers/`, `routes/{category,level,course}.routes.ts`
+   (plain routers, no auth inside), helpers `utils/http.ts`
+   (`sendValidationError`, `sendFieldError`, `parseId`),
+   `utils/pg-errors.ts` (23505 → 409, 23503 on insert → 400 for the
+   field via the constraint name, 23001/23503 on delete →
+   `isStillReferenced` → 409), `utils/sql.ts` (`buildSet` for PATCH),
+   `utils/slug.ts`. **To finish:** add to the user's `admin.routes.ts`
+   after `router.use(requireAuth, requireRole("admin"))`:
+   `router.use("/categories", categoryRoutes)`, `/levels`, `/courses`.
+   Postman: repo collection has a new **Admin** folder (login, Categories,
+   Levels, Courses, Cleanup, 401 without cookie) with collection variables
+   `runId/categoryId/levelId/courseId`; full run on a scratch copy: 42
+   requests, 83 assertions, 0 failed, run twice. Also checked by hand:
+   paid course delete → 409, id 99999999999 → 400, PATCH with only
+   unknown keys → 400 "Nothing to update". **Cloud copy NOT synced yet**:
+   sync once (putCollection, add an id for the new Admin folder) after
+   the users requests are added. Explained in `docs/how-it-works.md`
+   §5.1; README API table updated.
 4. Sections → lessons → materials CRUD (files as URLs for now; real
    uploads later).
 5. If time: payments list, enrollments, exams.
@@ -58,8 +78,30 @@ courses, sections, lessons, materials) following the same patterns and
 explains each module so the user can defend it at the exam. This
 overrides strict teaching mode for those modules only.
 
-**Next:** step 1, `requireRole("admin")` and the users module (the user
-writes it with Claude's help).
+**Now (in progress):** step 1, the users module (the user writes it with
+Claude's help, in bigger chunks: the user asked to speed up). Piece 1a
+given 2026-11-21: `requireRole(...roles)` (user wrote it: 401 without
+`req.user`, 403 "Insufficient permissions"; looks right),
+`routes/admin.routes.ts` with `router.use(requireAuth, requireRole("admin"))`
+mounted at `/api/v1/admin`, and `GET /admin/users` with zod query schema
+(`role`, `search`, `page`, `limit` via `z.coerce`), optional filters
+(`$1::text IS NULL OR ...`), ILIKE search on name/phone, LIMIT/OFFSET and a
+total count. Response `{ users, page, limit, total }`. Review 1 (2026-11-21):
+user built WHERE dynamically (push params, `queryParams.length === 1`
+decides WHERE vs AND: correct now, fragile); asked for a `conditions[]` +
+`join(" AND ")`, search by phone too, a total COUNT with the same WHERE,
+`.trim()` on search, `import type { ListUsersQuery }` instead of a copy,
+then the controller. User then said "измени если я что то неправильно
+сделал": Claude applied all of that in `user.service.ts` (returns
+`{ users, total }`, adds email/created_at, `ORDER BY u.id DESC`),
+`user.schema.ts` and `admin.routes.ts` (listUsers import + the 3 mounts).
+User then asked Claude to write `controllers/user.controller.ts` →
+`listUsers` too ("так же listUsers"). **1a done**, tsc clean, tested on a
+scratch copy with 3 extra users (role, name/phone search, page 2, trimmed
+blank search, 400 for role=boss / limit=500). Postman Admin folder now
+starts with a **Users** subfolder (6 requests); full run 48 requests, 96
+assertions, 0 failed, no 500s. Cloud copy still not synced. Next pieces: 1b get
+one + create (bcrypt, 409 on a duplicate phone), 1c update + status.
 
 ## Step 3 log (backend auth, done)
 

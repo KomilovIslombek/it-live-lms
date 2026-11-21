@@ -110,6 +110,17 @@ Vite, some Tailwind and shadcn. Docker: theory from videos only.
   to Asia/Tashkent, and `updated_at` maintained by the `set_updated_at()`
   trigger. Any new table with `updated_at` needs its own trigger line.
 - node-postgres returns NUMERIC (prices, amounts) as strings.
+  So does COUNT(*): write `COUNT(*)::int`. Course `price` is kept a
+  string in the API on purpose.
+- PostgreSQL error codes differ by FK rule: DELETE blocked by
+  `ON DELETE RESTRICT` is **23001**, not 23503 (23503 is NO ACTION, and
+  an INSERT/UPDATE pointing at a missing row). Use `isStillReferenced`
+  from `utils/pg-errors.ts` for deletes (found by the Postman run: 500).
+- zod: never `z.coerce.boolean()` for query strings (`"false"` → true);
+  use `statusQuerySchema` from `schemas/common.schema.ts`. No
+  `.default()` in a create schema that `.partial()` reuses for PATCH.
+- Stopping a scratch server: kill only its PID (find it by port), never
+  `taskkill /IM node.exe`, which would kill the user's dev server too.
 - node-postgres: a `Pool` without `pool.on("error", ...)` crashes the
   whole Node process when the database drops an idle connection (tested:
   restart or stop Postgres → unhandled 'error' event, code 57P01).

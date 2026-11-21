@@ -130,6 +130,66 @@ concerns): каждый файл делает одно дело, поэтому 
 ротацию (каждый день новый файл) или библиотеку вроде
 [pino](https://getpino.io/).
 
+## 5.1 Админ-API: категории, уровни, курсы (CRUD)
+
+**CRUD** = Create, Read, Update, Delete: четыре действия над любой
+таблицей. В REST каждое действие — свой HTTP-метод:
+
+| Действие | Запрос                           | Ответ                    |
+| -------- | -------------------------------- | ------------------------ |
+| список   | `GET /api/v1/admin/courses`      | 200 `{ courses, total }` |
+| один     | `GET /api/v1/admin/courses/7`    | 200 или 404              |
+| создать  | `POST /api/v1/admin/courses`     | **201** Created          |
+| изменить | `PATCH /api/v1/admin/courses/7`  | 200 или 404              |
+| удалить  | `DELETE /api/v1/admin/courses/7` | **204** No Content       |
+
+То же для `/categories` и `/levels`. Коды:
+[MDN, HTTP status](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status).
+
+**Защита.** В `routes/admin.routes.ts` одна строка
+`router.use(requireAuth, requireRole("admin"))` закрывает все маршруты
+админки. Без cookie — 401 («кто ты?»), не админ — 403 («знаю тебя, но
+нельзя»).
+
+**Файлы модуля** — те же 4 слоя, что у логина: `schemas/` (zod) →
+`controllers/` → `services/` (SQL) → `routes/`. Общие помощники лежат в
+`utils/` (`http.ts`, `pg-errors.ts`, `sql.ts`, `slug.ts`) и
+`schemas/common.schema.ts`.
+
+**Решения, которые стоит уметь объяснить:**
+
+1. **PATCH, а не PUT.** PATCH меняет только присланные поля.
+   `utils/sql.ts → buildSet` собирает `SET title = $1, status = $2` из
+   того, что пришло. Имена колонок попадают в текст SQL, но они из
+   проверенной zod-схемы (zod выбрасывает незнакомые ключи), а значения
+   всё равно идут через `$1`. Поэтому SQL-инъекции нет.
+2. **Нет `.default()` в схеме создания.** Схема PATCH = та же схема с
+   `.partial()`. С `default(true)` PATCH без `status` включал бы курс
+   обратно. Значения по умолчанию ставит база.
+3. **Ошибки базы → понятные ответы.** У PostgreSQL каждая ошибка имеет
+   код ([список](https://www.postgresql.org/docs/current/errcodes-appendix.html)):
+   - `23505` повтор уникального значения (тот же slug) → **409 Conflict**;
+   - `23503` курс с несуществующей `category_id` → **400** для этого поля;
+   - `23001` удаление категории, у которой есть курсы (`ON DELETE
+RESTRICT`) → **409**. Этот код нашли тесты Postman: сначала ловили
+     только 23503, и сервер отвечал 500.
+4. **Удалить или выключить.** Курс с оплатами удалить нельзя: деньги —
+   это история, база не даст (RESTRICT). Для этого есть `status: false`.
+5. **Необязательные фильтры** одним SQL: `($2::int IS NULL OR
+c.category_id = $2)`. Фильтра нет → передаём `null` → условие
+   пропускается.
+6. **Пагинация:** `LIMIT 10 OFFSET 20` = 3-я страница. Второй запрос
+   `COUNT(*)` с тем же WHERE даёт `total`. Оба запускаются одновременно
+   через [`Promise.all`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/all).
+7. **Ловушка `z.coerce.boolean()`:** `Boolean("false")` = `true`
+   (непустая строка). Поэтому `?status=` проверяем как
+   `z.enum(["true", "false"])`.
+8. **Типы из pg:** `COUNT(*)` приходит строкой → пишем `COUNT(*)::int`.
+   `price` (NUMERIC) оставляем строкой `"1200000.00"`, чтобы не терять
+   точность денег.
+9. **slug** (`frontend-react`) делается из названия, если админ его не
+   прислал (`utils/slug.ts`).
+
 ## 6. TypeScript за минуту
 
 Это JavaScript с подписями типов. Пишешь `phone: string`, и редактор

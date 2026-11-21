@@ -350,6 +350,968 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Admin",
+      "description": "Admin-only routes (/api/v1/admin/...). Every request here needs the admin's cookie, so the folder starts with a login. The test data it creates is deleted again in Cleanup.",
+      "item": [
+        {
+          "name": "Login as admin",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{adminPhone}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "description": "The Auth folder ends with Logout, so log in again. Also picks a runId (the current time) so the test data has unique names on every run."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"runId\", String(Date.now()));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Logged in as admin\", () => pm.expect(pm.response.json().user.role).to.eql(\"admin\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Users",
+          "item": [
+            {
+              "name": "List users",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/users"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "const body = pm.response.json();",
+                      "pm.test(\"Has users, page, limit and total\", () => {",
+                      "  pm.expect(body.users).to.be.an(\"array\");",
+                      "  pm.expect(body.page).to.eql(1);",
+                      "  pm.expect(body.limit).to.eql(10);",
+                      "  pm.expect(body.total).to.be.at.least(1);",
+                      "});",
+                      "pm.test(\"No password hashes\", () => body.users.forEach((u) => pm.expect(u).to.not.have.property(\"password_hash\")));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "List users by role",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/users?role=admin"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"Only admins\", () => pm.response.json().users.forEach((u) => pm.expect(u.role).to.eql(\"admin\")));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Search users by phone",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/users?search={{adminPhone}}",
+                "description": "Search looks at the name and the phone. + in a URL means a space, so the pre-request script encodes it."
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.request.url.query.upsert({ key: \"search\", value: encodeURIComponent(pm.environment.get(\"adminPhone\")) });"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"Finds the admin\", () => {",
+                      "  const phones = pm.response.json().users.map((u) => u.phone);",
+                      "  pm.expect(phones).to.include(pm.environment.get(\"adminPhone\"));",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "List users with a small page",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/users?page=1&limit=1"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"At most 1 user\", () => pm.expect(pm.response.json().users.length).to.be.at.most(1));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "List users with an unknown role → 400",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/users?role=boss"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                      "pm.test(\"Explains the role field\", () => {",
+                      "  const body = pm.response.json();",
+                      "  pm.expect(body.error).to.eql(\"Invalid request\");",
+                      "  pm.expect(body.details).to.have.property(\"role\");",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "List users with page=0 → 400",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/users?page=0"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                      "pm.test(\"Explains the page field\", () => {",
+                      "  const body = pm.response.json();",
+                      "  pm.expect(body.error).to.eql(\"Invalid request\");",
+                      "  pm.expect(body.details).to.have.property(\"page\");",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Categories",
+          "item": [
+            {
+              "name": "Create category",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/categories",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Test category {{runId}}\",\n  \"description\": \"Created by the Postman tests\"\n}"
+                },
+                "description": "No slug sent, so the server makes one from the title."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                      "const { category } = pm.response.json();",
+                      "pm.test(\"Slug is made from the title\", () => pm.expect(category.slug).to.eql(\"test-category-\" + pm.collectionVariables.get(\"runId\")));",
+                      "pm.test(\"Active by default, no courses yet\", () => {",
+                      "  pm.expect(category.status).to.be.true;",
+                      "  pm.expect(category.courses_count).to.eql(0);",
+                      "});",
+                      "pm.collectionVariables.set(\"categoryId\", category.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create category with a taken slug → 409",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/categories",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Another title\",\n  \"slug\": \"test-category-{{runId}}\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 409\", () => pm.response.to.have.status(409));",
+                      "pm.test(\"Error message\", () => pm.expect(pm.response.json().error).to.eql(\"A category with this slug already exists\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create category without a title → 400",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/categories",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                      "pm.test(\"Explains the title field\", () => {",
+                      "  const body = pm.response.json();",
+                      "  pm.expect(body.error).to.eql(\"Invalid request\");",
+                      "  pm.expect(body.details).to.have.property(\"title\");",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create category with a bad slug → 400",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/categories",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Bad slug\",\n  \"slug\": \"Bad Slug!\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                      "pm.test(\"Explains the slug field\", () => {",
+                      "  const body = pm.response.json();",
+                      "  pm.expect(body.error).to.eql(\"Invalid request\");",
+                      "  pm.expect(body.details).to.have.property(\"slug\");",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "List categories",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/categories"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"Contains the new category\", () => {",
+                      "  const ids = pm.response.json().categories.map((c) => c.id);",
+                      "  pm.expect(ids).to.include(pm.collectionVariables.get(\"categoryId\"));",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get category",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/categories/{{categoryId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"Same id\", () => pm.expect(pm.response.json().category.id).to.eql(pm.collectionVariables.get(\"categoryId\")));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get category with an invalid id → 400",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/categories/abc"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                      "pm.test(\"Error message\", () => pm.expect(pm.response.json().error).to.eql(\"Invalid id\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get unknown category → 404",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/categories/2147483647"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));",
+                      "pm.test(\"Error message\", () => pm.expect(pm.response.json().error).to.eql(\"Category not found\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Update category",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/admin/categories/{{categoryId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Updated by the Postman tests\",\n  \"status\": false\n}"
+                },
+                "description": "PATCH changes only the fields that are sent."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "const { category } = pm.response.json();",
+                      "pm.test(\"Changed the sent fields\", () => {",
+                      "  pm.expect(category.status).to.be.false;",
+                      "  pm.expect(category.description).to.eql(\"Updated by the Postman tests\");",
+                      "});",
+                      "pm.test(\"Kept the others\", () => pm.expect(category.title).to.eql(\"Test category \" + pm.collectionVariables.get(\"runId\")));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Update category with an empty body → 400",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/admin/categories/{{categoryId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                      "pm.test(\"Error message\", () => pm.expect(pm.response.json().error).to.eql(\"Nothing to update\"));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Levels",
+          "item": [
+            {
+              "name": "Create level",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/levels",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Test level {{runId}}\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                      "const { level } = pm.response.json();",
+                      "pm.test(\"Slug is made from the title\", () => pm.expect(level.slug).to.eql(\"test-level-\" + pm.collectionVariables.get(\"runId\")));",
+                      "pm.collectionVariables.set(\"levelId\", level.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "List levels",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/levels"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"Contains the new level\", () => {",
+                      "  const ids = pm.response.json().levels.map((l) => l.id);",
+                      "  pm.expect(ids).to.include(pm.collectionVariables.get(\"levelId\"));",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get level",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/levels/{{levelId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"Same id\", () => pm.expect(pm.response.json().level.id).to.eql(pm.collectionVariables.get(\"levelId\")));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Update level",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/admin/levels/{{levelId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Test level {{runId}} (updated)\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "const { level } = pm.response.json();",
+                      "pm.test(\"New title, same slug\", () => {",
+                      "  pm.expect(level.title).to.include(\"(updated)\");",
+                      "  pm.expect(level.slug).to.eql(\"test-level-\" + pm.collectionVariables.get(\"runId\"));",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Courses",
+          "item": [
+            {
+              "name": "Create course",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/courses",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Test course {{runId}}\",\n  \"description\": \"Created by the Postman tests\",\n  \"price\": 1200000,\n  \"banner\": \"https://example.com/banner.jpg\",\n  \"category_id\": {{categoryId}},\n  \"level_id\": {{levelId}}\n}"
+                },
+                "description": "category_id and level_id come from the requests above. price comes back as a string (\"1200000.00\"): PostgreSQL NUMERIC is exact, and node-postgres keeps it a string."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                      "const { course } = pm.response.json();",
+                      "pm.test(\"Price is an exact string\", () => pm.expect(course.price).to.eql(\"1200000.00\"));",
+                      "pm.test(\"Has the category and level titles\", () => {",
+                      "  pm.expect(course.category).to.include(\"Test category\");",
+                      "  pm.expect(course.level).to.include(\"Test level\");",
+                      "});",
+                      "pm.test(\"No students yet\", () => pm.expect(course.students_count).to.eql(0));",
+                      "pm.collectionVariables.set(\"courseId\", course.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create course with an unknown category → 400",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/courses",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Broken\",\n  \"description\": \"x\",\n  \"price\": 1,\n  \"banner\": \"x.jpg\",\n  \"category_id\": 2147483647,\n  \"level_id\": {{levelId}}\n}"
+                },
+                "description": "The id is valid, but no such category exists: the database's foreign key refuses it, and the API answers 400 for that field."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                      "pm.test(\"Explains the category_id field\", () => {",
+                      "  const body = pm.response.json();",
+                      "  pm.expect(body.error).to.eql(\"Invalid request\");",
+                      "  pm.expect(body.details).to.have.property(\"category_id\");",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create course with a negative price → 400",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/courses",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Broken\",\n  \"description\": \"x\",\n  \"price\": -5,\n  \"banner\": \"x.jpg\",\n  \"category_id\": {{categoryId}},\n  \"level_id\": {{levelId}}\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                      "pm.test(\"Explains the price field\", () => {",
+                      "  const body = pm.response.json();",
+                      "  pm.expect(body.error).to.eql(\"Invalid request\");",
+                      "  pm.expect(body.details).to.have.property(\"price\");",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "List courses with filters",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/courses?search={{runId}}&category_id={{categoryId}}&status=true&page=1&limit=10"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "const body = pm.response.json();",
+                      "pm.test(\"Finds exactly the new course\", () => {",
+                      "  pm.expect(body.total).to.eql(1);",
+                      "  pm.expect(body.courses[0].id).to.eql(pm.collectionVariables.get(\"courseId\"));",
+                      "});",
+                      "pm.test(\"Echoes page and limit\", () => {",
+                      "  pm.expect(body.page).to.eql(1);",
+                      "  pm.expect(body.limit).to.eql(10);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "List courses with status=false",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/courses?category_id={{categoryId}}&status=false",
+                "description": "The new course is active, so nothing matches. Catches the z.coerce.boolean() trap, where \"false\" would mean true."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"Nothing matches\", () => pm.expect(pm.response.json().total).to.eql(0));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "List courses with page=0 → 400",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/courses?page=0"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                      "pm.test(\"Explains the page field\", () => {",
+                      "  const body = pm.response.json();",
+                      "  pm.expect(body.error).to.eql(\"Invalid request\");",
+                      "  pm.expect(body.details).to.have.property(\"page\");",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get course",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/courses/{{courseId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"Has the full fields\", () => pm.expect(pm.response.json().course).to.include.keys(\"description\", \"intro_video\", \"updated_at\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Update course",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/admin/courses/{{courseId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"price\": 990000\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"New price\", () => pm.expect(pm.response.json().course.price).to.eql(\"990000.00\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Delete a category that has courses → 409",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/admin/categories/{{categoryId}}",
+                "description": "ON DELETE RESTRICT: the database refuses while a course uses the category."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 409\", () => pm.response.to.have.status(409));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Cleanup",
+          "item": [
+            {
+              "name": "Delete course",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/admin/courses/{{courseId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 204\", () => pm.response.to.have.status(204));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get deleted course → 404",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/courses/{{courseId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));",
+                      "pm.test(\"Error message\", () => pm.expect(pm.response.json().error).to.eql(\"Course not found\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Delete level",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/admin/levels/{{levelId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 204\", () => pm.response.to.have.status(204));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Delete category",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/admin/categories/{{categoryId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 204\", () => pm.response.to.have.status(204));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Delete the same category again → 404",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/admin/categories/{{categoryId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Admin route without a cookie → 401",
+          "protocolProfileBehavior": {
+            "disableCookies": true
+          },
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/admin/categories"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "runId",
+      "value": ""
+    },
+    {
+      "key": "categoryId",
+      "value": ""
+    },
+    {
+      "key": "levelId",
+      "value": ""
+    },
+    {
+      "key": "courseId",
+      "value": ""
     }
   ]
 }
