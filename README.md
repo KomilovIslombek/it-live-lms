@@ -4,8 +4,9 @@ A learning management system for an online IT school. Admins build
 courses (sections → lessons → materials, assignments and exams), mentors
 teach and grade, and students learn and track their progress.
 
-> **Status: early development.** The database, an Express API and a React
-> client are set up and talk to each other. Features come next. See
+> **Status: admin API done, frontend next.** Login and the whole admin
+> backend (users, dashboard stats, catalog, course content) work and are
+> covered by Postman tests. The React screens come next. See
 > [What's built](#whats-built) below.
 
 ## Roles
@@ -79,23 +80,50 @@ Express server, so the browser only talks to one address.
 | GET    | `/api/v1/auth/me`     | cookie | The logged-in user                                                            |
 | POST   | `/api/v1/auth/logout` | -      | Deletes the `token` cookie (204)                                              |
 
-Admin routes (cookie of a user with the `admin` role; 401 without a
-cookie, 403 for other roles). Each of `categories`, `levels` and
-`courses` has the same five routes:
+Admin routes, all under `/api/v1/admin`. They need the cookie of a user
+with the `admin` role: 401 without a cookie, 403 for other roles.
 
-| Method | Path                       | Description                                                                                                                                           |
-| ------ | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/v1/admin/users`      | `?role=student&search=&page=1&limit=10` (role: admin, mentor, assistant or student; search by name or phone), returns `{ users, page, limit, total }` |
-| GET    | `/api/v1/admin/categories` | All categories with `courses_count` (same for `levels`)                                                                                               |
-| GET    | `/api/v1/admin/courses`    | `?search=&category_id=&level_id=&status=true\|false&page=1&limit=10`, returns `{ courses, page, limit, total }`                                       |
-| GET    | `/api/v1/admin/<name>/:id` | One item, 404 if missing                                                                                                                              |
-| POST   | `/api/v1/admin/<name>`     | Create (201). Category and level `slug` is made from the title if not sent                                                                            |
-| PATCH  | `/api/v1/admin/<name>/:id` | Change only the fields sent (200)                                                                                                                     |
-| DELETE | `/api/v1/admin/<name>/:id` | 204; 409 while courses use the category/level or the course has payments                                                                              |
+**Dashboard and users**
 
-Course `price` is returned as a string (`"1200000.00"`): PostgreSQL
-`NUMERIC` is exact, and it stays exact in JSON. A duplicate slug answers
-409, and an unknown `category_id` / `level_id` answers 400 for that field.
+| Method | Path         | Description                                                                                                                          |
+| ------ | ------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| GET    | `/stats`     | Counts for the dashboard cards: users (total, active, per role), courses, categories, enrollments, payments and revenue              |
+| GET    | `/users`     | `?role=student&search=&status=true&page=1&limit=10` (search by name or phone), returns `{ users, page, limit, total }`               |
+| GET    | `/users/:id` | Full profile (mentor fields, `courses_count`), never the password hash                                                               |
+| POST   | `/users`     | `full_name`, `phone`, `password` (8+), `role`, optional `email`, `status` and mentor fields. 201; 409 if the phone or email is taken |
+| PATCH  | `/users/:id` | Any of the same fields; a new password is hashed. `{ "status": false }` deactivates. An admin can't deactivate or demote themselves  |
+| DELETE | `/users/:id` | 204; 409 if the user has payments (deactivate instead); an admin can't delete themselves                                             |
+
+**Catalog.** `categories`, `levels` and `courses` each have the same five
+routes: `GET /<name>`, `GET /<name>/:id`, `POST /<name>`,
+`PATCH /<name>/:id`, `DELETE /<name>/:id`.
+
+- `GET /courses` takes `?search=&category_id=&level_id=&status=true|false&page=1&limit=10`
+  and returns `{ courses, page, limit, total }`. Categories and levels
+  come as one list with `courses_count`.
+- A category or level `slug` is made from the title when it isn't sent;
+  a duplicate slug answers 409.
+- An unknown `category_id` / `level_id` on a course answers 400 for that
+  field. Deleting a category or level that courses use, or a course with
+  payments, answers 409.
+- Course `price` is returned as a string (`"1200000.00"`): PostgreSQL
+  `NUMERIC` is exact, and it stays exact in JSON.
+
+**Course content** (course → sections → lessons → materials). List and
+create go under the parent, everything else uses the item's own id:
+
+| Method             | Path                           | Description                                                          |
+| ------------------ | ------------------------------ | -------------------------------------------------------------------- |
+| GET, POST          | `/courses/:courseId/sections`  | Sections of a course, ordered by `position`; 404 if no course        |
+| GET, PATCH, DELETE | `/sections/:id`                | One section (GET includes its lessons)                               |
+| GET, POST          | `/sections/:sectionId/lessons` | Lessons of a section (`title`, `description`, `video_url`)           |
+| GET, PATCH, DELETE | `/lessons/:id`                 | One lesson (GET includes its materials and their files)              |
+| GET, POST          | `/lessons/:lessonId/materials` | Materials of a lesson, each with `files: [{ file_name, file_path }]` |
+| GET, PATCH, DELETE | `/materials/:id`               | One material; `files` in a PATCH replaces the whole list             |
+
+A material and its files are saved in one transaction (all or nothing).
+Deleting a course, section or lesson deletes everything inside it. Files
+are links for now; real uploads come later.
 
 Errors are always JSON: `{ "error": "..." }`, plus `details` for
 validation errors (400). The client gets only "Internal server error" for
@@ -147,13 +175,13 @@ starts with an empty volume.
       database status)
 - [x] Login by phone and password (JWT in an httpOnly cookie), who-am-I,
       logout, JSON errors with an error log file
-- [ ] Admin: users and roles (list with search and pagination done; get, create, update next)
+- [x] Admin: users (list, search, create, edit, activate/deactivate, delete) and dashboard stats
 - [x] Admin: categories, levels and courses (CRUD with search, filters and
       pagination)
-- [ ] Admin: sections, lessons, materials
+- [x] Admin: sections, lessons, materials (files as links for now)
 - [ ] Student: my courses, lessons, progress
 - [ ] Mentor: assignments, exams, grading, results
-- [ ] Payments, comments, dashboard stats, certificates, landing page
+- [ ] Payments, comments, certificates, landing page
 
 ## Credits
 

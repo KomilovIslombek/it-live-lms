@@ -190,6 +190,69 @@ c.category_id = $2)`. Фильтра нет → передаём `null` → ус
 9. **slug** (`frontend-react`) делается из названия, если админ его не
    прислал (`utils/slug.ts`).
 
+## 5.2 Пользователи (Foydalanuvchilar)
+
+`/api/v1/admin/users`: список, один, создать, изменить, удалить.
+Код: `schemas/user.schema.ts`, `services/user.service.ts`,
+`controllers/user.controller.ts`, `routes/user.routes.ts`.
+
+- **Пароль** хэшируется [bcrypt](https://www.npmjs.com/package/bcryptjs)
+  (cost 12) при создании и при смене. В ответах никогда нет
+  `password_hash`.
+- **Роль приходит словом** (`"student"`), а в таблице `role_id`. Поэтому
+  `INSERT ... SELECT r.id ... FROM roles r WHERE r.title = $16`: id роли
+  берётся прямо внутри INSERT, одним запросом.
+- **Телефон и email уникальны** (UNIQUE в базе). Повтор → код `23505`,
+  по имени ограничения (`users_phone_unique` / `users_email_unique`)
+  отвечаем **409** и говорим, какое поле занято.
+- **Выключить, а не удалить:** `PATCH { "status": false }`.
+  Выключенный не может войти (403 при логине). Пользователя с оплатами
+  удалить нельзя (409).
+- **Защита от самоблокировки:** админ не может выключить, понизить или
+  удалить сам себя (400). Иначе он мгновенно теряет доступ, а админов
+  может не остаться.
+- Фильтры списка: `role`, `search` (имя или телефон), `status`,
+  `page`, `limit`. WHERE собирается из массива условий
+  (`conditions.join(" AND ")`).
+
+## 5.3 Статистика для дашборда
+
+`GET /api/v1/admin/stats`: числа для карточек. Код:
+`services/stats.service.ts`.
+
+- Один SQL с подзапросами `(SELECT COUNT(*) ...)`: одна поездка в базу
+  вместо девяти.
+- `COALESCE(SUM(amount), 0)`: сумма по нулю строк — это NULL, а нам
+  нужен 0.
+- Пользователи по ролям: `LEFT JOIN` + `GROUP BY`. LEFT JOIN оставляет
+  роли, у которых 0 человек.
+- Выручка считается только по `status = 'succeeded'`.
+  [date_trunc](https://www.postgresql.org/docs/current/functions-datetime.html#FUNCTIONS-DATETIME-TRUNC)
+  `('month', now())` даёт начало текущего месяца.
+
+## 5.4 Содержимое курса: разделы → уроки → материалы
+
+Код: `content.routes.ts`, `section.*`, `lesson.*`, `material.*`.
+
+- **Вложенные URL только для списка и создания:**
+  `POST /courses/7/sections` (раздел курса 7), а дальше `/sections/3`.
+  Короткие адреса, и id родителя не нужно отправлять дважды.
+- **404 для родителя:** раздел в несуществующем курсе отклоняет внешний
+  ключ (`23503`), и мы отвечаем «Course not found».
+- **Удаление каскадом:** удалишь курс, уйдут его разделы, уроки,
+  материалы, файлы (`ON DELETE CASCADE` в схеме).
+- **Порядок:** `position` (0, 1, 2...), при равенстве по `id`.
+- **Транзакция** (`utils/sql.ts → withTransaction`): материал и его файлы
+  сохраняются **вместе или никак**. `BEGIN` → запросы → `COMMIT`, при
+  ошибке `ROLLBACK`. Проверено: второй файл упал, первый файл и сам
+  материал тоже не сохранились.
+  [node-postgres: transactions](https://node-postgres.com/features/transactions)
+- **Файлы одним запросом:** `json_agg(...)` собирает файлы материала в
+  JSON-массив прямо в SQL, `FILTER` + `COALESCE` дают `[]`, когда файлов
+  нет. [Aggregate functions](https://www.postgresql.org/docs/current/functions-aggregate.html)
+- Файлы пока ссылки (`file_path`). Настоящая загрузка (S3) будет позже и
+  заполнит те же колонки.
+
 ## 6. TypeScript за минуту
 
 Это JavaScript с подписями типов. Пишешь `phone: string`, и редактор
@@ -351,3 +414,26 @@ npm run dev       # http://localhost:4000
 
 # 3. Postman: Import → оба файла из postman/ → заполнить environment → Run
 ```
+
+## 11. Показ преподавателю (по шагам)
+
+1. Открой Docker Desktop, база запустится сама. Проверка:
+   `docker compose ps` → `it-live-lms-db` **Up**.
+2. `cd server` → `npm run dev` → «Server is running on
+   http://localhost:4000».
+3. Postman → коллекция **IT Live LMS API** → environment **IT Live LMS
+   (local)** (там твои `adminPhone` и `adminPassword`) → **Run**.
+   Все тесты зелёные: это и есть демонстрация.
+4. Покажи по одному запросу из папки **Admin**:
+   - **Login as admin** — cookie `token`;
+   - **Dashboard stats** — карточки дашборда;
+   - **Create student** → **Student opens the admin panel → 403**:
+     роли работают;
+   - **Create course** → **Create section** → **Create lesson** →
+     **Create material with two files**: дерево курса;
+   - **Delete a category that has courses → 409**: база защищает данные.
+5. Покажи pgAdmin (порт 5433): созданные строки видны в таблицах.
+6. Если спросят «что будет при ошибке»: `server/logs/error.log`.
+
+Тестовые данные (студент, курс, категория...) коллекция сама удаляет в
+папке **Cleanup**, база остаётся чистой.

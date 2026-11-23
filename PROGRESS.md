@@ -1,6 +1,6 @@
 # Progress
 
-Last updated: 2026-11-21
+Last updated: 2026-11-23
 
 ## Deadline (set 2026-11-21)
 
@@ -11,97 +11,69 @@ teacher reviews the admin dashboard.** The teacher built only a backend
 and not polished. The user wants the admin dashboard finished by then,
 consistency over perfection.
 
-Plan agreed 2026-11-21 (working
-mode below): for Tuesday, finish the **admin backend API** (Postman-tested,
-same scope as the teacher's); the React frontend (old step 3e) comes
-after the exam.
+Plan agreed 2026-11-21: for Tuesday, finish the **admin backend API**
+(Postman-tested, same scope as the teacher's); the React frontend (old
+step 3e) comes after the exam.
 
-0. **Login by phone + password: done 2026-11-21** (`8677d87`, pushed).
-   As the Figma login screen shows ("Telefon raqamingiz" with `+998`).
-   The user wrote: `loginSchema.phone` (`/^\+998\d{9}$/`),
-   `findUserByPhone`, 401 "Invalid phone or password", and the seed now
-   uses `SEED_ADMIN_PHONE` with `ON CONFLICT (phone) DO NOTHING` (they
-   replaced email completely). So the real DB has two admins: **#1**
-   (email only, from October, can't log in now) and **#3** (phone). The
-   user deleted #1 themselves in pgAdmin as practice (checked
-   2026-11-21: only #3 is left). `/me` returns `phone` instead of
-   `email`. Postman collection and environment use `adminPhone`; the
-   cloud copy was synced with `putCollection` on 2026-11-21 (same item
-   ids) and the user's duplicate Logout is gone. Full run on a copy: 12
-   requests, 24 assertions, 0 failed.
-   **Also done: error log file (2026-11-21, by Claude)** (user asked "внедри
-   это сам"; committed by the user as `cc43c78`). `server/src/utils/logger.ts` →
-   `logError(context, err)`: prints to the terminal and appends to
-   `server/logs/error.log` (path from `import.meta.url`, so it doesn't
-   depend on the cwd; Tashkent time; not awaited, a write failure only
-   prints). Used in `errorHandler` (`500 METHOD originalUrl`) and in the
-   Pool's `error` listener. `logs/` is gitignored. Never log request
-   bodies (passwords). Tested on a scratch copy with the DB stopped: 500
-   JSON, two entries in the file (idle client 57P01 and the 500 with the
-   stack), password not in the file, health 200 after the DB came back.
-   Later: rotation or pino before the deploy. Explanation for the user:
-   `docs/how-it-works.md` (Russian).
-1. `requireRole("admin")` + users: list by role with search and
-   pagination, get one, create (bcrypt), update, activate/deactivate.
-2. `GET /api/v1/admin/stats` (counts for the dashboard cards).
-3. **Categories, levels, courses CRUD: written by Claude 2026-11-21, in
-   parallel with step 1 (user said "пиши параллельно"); not committed,
-   not mounted yet.** Files: `schemas/{common,category,level,course}.schema.ts`,
-   `services/`, `controllers/`, `routes/{category,level,course}.routes.ts`
-   (plain routers, no auth inside), helpers `utils/http.ts`
-   (`sendValidationError`, `sendFieldError`, `parseId`),
-   `utils/pg-errors.ts` (23505 → 409, 23503 on insert → 400 for the
-   field via the constraint name, 23001/23503 on delete →
-   `isStillReferenced` → 409), `utils/sql.ts` (`buildSet` for PATCH),
-   `utils/slug.ts`. **To finish:** add to the user's `admin.routes.ts`
-   after `router.use(requireAuth, requireRole("admin"))`:
-   `router.use("/categories", categoryRoutes)`, `/levels`, `/courses`.
-   Postman: repo collection has a new **Admin** folder (login, Categories,
-   Levels, Courses, Cleanup, 401 without cookie) with collection variables
-   `runId/categoryId/levelId/courseId`; full run on a scratch copy: 42
-   requests, 83 assertions, 0 failed, run twice. Also checked by hand:
-   paid course delete → 409, id 99999999999 → 400, PATCH with only
-   unknown keys → 400 "Nothing to update". **Cloud copy NOT synced yet**:
-   sync once (putCollection, add an id for the new Admin folder) after
-   the users requests are added. Explained in `docs/how-it-works.md`
-   §5.1; README API table updated.
-4. Sections → lessons → materials CRUD (files as URLs for now; real
-   uploads later).
-5. If time: payments list, enrollments, exams.
-6. Postman requests with tests for each, then a short "how to run"
-   for the teacher (README + Postman import).
+**Working mode changed 2026-11-23:** the user said "сам сделай все"
+(build it yourself) for the rest of the exam work, after the "mix" mode
+of 2026-11-21 (user wrote login, `requireRole`, the first `listUsers`
+draft). Claude now writes the code and explains it in
+`docs/how-it-works.md` so the user can defend it. Teaching mode returns
+after the exam unless the user says otherwise.
 
-**Working mode until the exam: "mix" (user's choice, 2026-11-21).** The
-user writes the phone login and the users module with Claude's help;
-Claude writes the remaining repetitive CRUD (stats, categories, levels,
-courses, sections, lessons, materials) following the same patterns and
-explains each module so the user can defend it at the exam. This
-overrides strict teaching mode for those modules only.
+**Commits (user's decision 2026-11-23):** Claude may commit, with the
+user's own git identity (KomilovIslombek) and **no Co-Authored-By
+line**, so GitHub shows only the user. Still ask before every push.
 
-**Now (in progress):** step 1, the users module (the user writes it with
-Claude's help, in bigger chunks: the user asked to speed up). Piece 1a
-given 2026-11-21: `requireRole(...roles)` (user wrote it: 401 without
-`req.user`, 403 "Insufficient permissions"; looks right),
-`routes/admin.routes.ts` with `router.use(requireAuth, requireRole("admin"))`
-mounted at `/api/v1/admin`, and `GET /admin/users` with zod query schema
-(`role`, `search`, `page`, `limit` via `z.coerce`), optional filters
-(`$1::text IS NULL OR ...`), ILIKE search on name/phone, LIMIT/OFFSET and a
-total count. Response `{ users, page, limit, total }`. Review 1 (2026-11-21):
-user built WHERE dynamically (push params, `queryParams.length === 1`
-decides WHERE vs AND: correct now, fragile); asked for a `conditions[]` +
-`join(" AND ")`, search by phone too, a total COUNT with the same WHERE,
-`.trim()` on search, `import type { ListUsersQuery }` instead of a copy,
-then the controller. User then said "измени если я что то неправильно
-сделал": Claude applied all of that in `user.service.ts` (returns
-`{ users, total }`, adds email/created_at, `ORDER BY u.id DESC`),
-`user.schema.ts` and `admin.routes.ts` (listUsers import + the 3 mounts).
-User then asked Claude to write `controllers/user.controller.ts` →
-`listUsers` too ("так же listUsers"). **1a done**, tsc clean, tested on a
-scratch copy with 3 extra users (role, name/phone search, page 2, trimmed
-blank search, 400 for role=boss / limit=500). Postman Admin folder now
-starts with a **Users** subfolder (6 requests); full run 48 requests, 96
-assertions, 0 failed, no 500s. Cloud copy still not synced. Next pieces: 1b get
-one + create (bcrypt, 409 on a duplicate phone), 1c update + status.
+### Admin API status (2026-11-23): all of it done
+
+All routes under `/api/v1/admin`, behind `requireAuth` +
+`requireRole("admin")` in `routes/admin.routes.ts`. Full Postman run on
+a scratch copy: **85 requests, 167 assertions, 0 failed, run twice, no
+500s**, the test data cleans itself up (only the admin is left).
+
+- **Login** (phone + password), `/me`, logout, JSON errors, error log
+  file: done earlier (`8677d87`, `cc43c78`).
+- **Users** (`d2ec061` for the list; the rest on 2026-11-23): list
+  (`role`, `search` by name/phone, `status`, pagination), get one (full
+  profile + `courses_count`, `findUserDetailsById`), create (bcrypt 12,
+  `INSERT ... SELECT` for the role id, 409 naming phone/email), PATCH
+  (password re-hashed, role looked up, `status: false` deactivates),
+  DELETE (409 with payments). An admin can't deactivate, demote or delete
+  themselves (400). `routes/user.routes.ts`.
+- **Stats** `GET /admin/stats`: users total/active/by_role, courses
+  total/active, categories, enrollments, succeeded payments, revenue and
+  revenue this month (strings).
+- **Categories, levels, courses** (`d2ec061`): CRUD, course list with
+  search/filters/pagination, slug from the title, 409/400 mapping from
+  PostgreSQL codes.
+- **Content** (`routes/content.routes.ts`): `/courses/:courseId/sections`,
+  `/sections/:id`, `/sections/:sectionId/lessons`, `/lessons/:id`,
+  `/lessons/:lessonId/materials`, `/materials/:id`. Section GET includes
+  lessons, lesson GET includes materials + files (`json_agg`). Material
+  - files in one transaction (`utils/sql.ts → withTransaction`; rollback
+    checked by hand), PATCH `files` replaces the list. Files are links for
+    now.
+- **Postman:** repo collection = Health, Auth, Errors, Admin (Login, Stats,
+  Users incl. student login → 403, Categories, Levels, Courses, Course
+  content, Cleanup, 401 without cookie). Generator script lived in the
+  scratchpad (gone after reboot); edit the JSON directly next time.
+  **Cloud copy not updated**: too big to send through `putCollection`
+  by hand (47 KB). The user re-imports the repo file in the Postman app
+  (Import → Replace). Their environment already has `adminPhone` /
+  `adminPassword`.
+- **Docs:** README API section rewritten; `docs/how-it-works.md` §5.1–5.4
+  (catalog, users, stats, content) and §11 (step-by-step demo for the
+  teacher).
+
+**Not done (after the exam, or if time):** exams/questions and exercises
+CRUD, payments list, enrollments, real file uploads, mentor and student
+sides, the React frontend, first deploy.
+
+**Next:** the user re-imports the Postman collection, runs it against
+their real server, and reads §5.1–5.4 and §11 before the exam
+(2026-11-24).
 
 ## Step 3 log (backend auth, done)
 
@@ -208,7 +180,7 @@ Status: done / in progress / next / later
    TypeScript server connected to the database, React + Vite + TypeScript
    client connected through a proxy, Prettier
 3. [done, backend] Login and roles (admin, mentor, assistant, student); the React login page moves after the exam
-4. [in progress, deadline 2026-11-24] Admin dashboard backend API (users, stats, courses, content)
+4. [done 2026-11-23, exam 2026-11-24] Admin dashboard backend API (users, stats, courses, content)
 5. [next] **First deploy** to a VPS (moved here from step 2, see Decisions)
 6. [later] Admin manages courses → sections → lessons → materials
 7. [later] Student sees their courses and lessons, with progress

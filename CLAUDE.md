@@ -119,6 +119,13 @@ Vite, some Tailwind and shadcn. Docker: theory from videos only.
 - zod: never `z.coerce.boolean()` for query strings (`"false"` → true);
   use `statusQuerySchema` from `schemas/common.schema.ts`. No
   `.default()` in a create schema that `.partial()` reuses for PATCH.
+- Scratch `initdb` clusters get Russian messages but psql talks WIN1252,
+  so a NOTICE like «отношение уже существует» aborts the load ("has no
+  equivalent in encoding WIN1252", exit 3) and file 2 silently loads
+  nothing. Always `export PGCLIENTENCODING=UTF8` before psql there.
+  Docker init is not affected.
+- Bash heredocs containing SQL `DELETE FROM` text get blocked by the
+  removal safety check; write such code with Write/Edit instead.
 - Stopping a scratch server: kill only its PID (find it by port), never
   `taskkill /IM node.exe`, which would kill the user's dev server too.
 - node-postgres: a `Pool` without `pool.on("error", ...)` crashes the

@@ -1,5 +1,11 @@
 import pool from "../db.js";
-import type { ListUsersQuery } from "../schemas/user.schema.js";
+import bcrypt from "bcryptjs";
+import { buildSet } from "../utils/sql.js";
+import type {
+  CreateUserInput,
+  ListUsersQuery,
+  UpdateUserInput,
+} from "../schemas/user.schema.js";
 
 interface UserWithPassword {
   id: number;
@@ -50,9 +56,15 @@ interface UserListItem {
   created_at: Date;
 }
 
-export async function listUsers({ role, search, page, limit }: ListUsersQuery) {
+export async function listUsers({
+  role,
+  search,
+  status,
+  page,
+  limit,
+}: ListUsersQuery) {
   const offset = (page - 1) * limit;
-  const queryParams: (string | number)[] = [];
+  const queryParams: (string | number | boolean)[] = [];
   // Every filter adds one condition; at the end they are joined with AND.
   // So the order and the number of filters never matter.
   const conditions: string[] = [];
@@ -68,6 +80,11 @@ export async function listUsers({ role, search, page, limit }: ListUsersQuery) {
     conditions.push(
       `(u.full_name ILIKE $${queryParams.length} OR u.phone ILIKE $${queryParams.length})`,
     );
+  }
+
+  if (status !== undefined) {
+    queryParams.push(status);
+    conditions.push(`u.status = $${queryParams.length}`);
   }
 
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
@@ -94,4 +111,120 @@ export async function listUsers({ role, search, page, limit }: ListUsersQuery) {
     users: pageResult.rows,
     total: countResult.rows[0]?.total ?? 0,
   };
+}
+
+// Everything about one user except the password hash, for the admin's
+// user page and edit form.
+export interface UserDetails {
+  id: number;
+  full_name: string;
+  phone: string | null;
+  email: string | null;
+  status: boolean;
+  role: string;
+  profile_img: string | null;
+  job: string | null;
+  experience: number | null;
+  website: string | null;
+  info: string | null;
+  facebook: string | null;
+  telegram: string | null;
+  linkedin: string | null;
+  instagram: string | null;
+  github: string | null;
+  courses_count: number;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export async function findUserDetailsById(id: number) {
+  const { rows } = await pool.query<UserDetails>(
+    `SELECT u.id, u.full_name, u.phone, u.email, u.status, r.title AS role,
+        u.profile_img, u.job, u.experience, u.website, u.info,
+        u.facebook, u.telegram, u.linkedin, u.instagram, u.github,
+        (SELECT COUNT(*)::int FROM user_courses uc WHERE uc.user_id = u.id) AS courses_count,
+        u.created_at, u.updated_at
+      FROM users u
+      JOIN roles r ON r.id = u.role_id
+      WHERE u.id = $1`,
+    [id],
+  );
+  return rows[0] ?? null;
+}
+
+const BCRYPT_COST = 12; // the same as the seed script
+
+// The request sends a role name ("student"), the table stores role_id.
+// INSERT ... SELECT takes the id from the roles table in the same query.
+// Throws UNIQUE_VIOLATION when the phone or email is already used.
+export async function createUser(input: CreateUserInput) {
+  const passwordHash = await bcrypt.hash(input.password, BCRYPT_COST);
+
+  const { rows } = await pool.query<{ id: number }>(
+    `INSERT INTO users (role_id, full_name, phone, email, password_hash, status,
+        profile_img, job, experience, website, info,
+        facebook, telegram, linkedin, instagram, github)
+      SELECT r.id, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+      FROM roles r WHERE r.title = $16
+      RETURNING id`,
+    [
+      input.full_name,
+      input.phone,
+      input.email ?? null,
+      passwordHash,
+      input.status ?? true,
+      input.profile_img ?? null,
+      input.job ?? null,
+      input.experience ?? null,
+      input.website ?? null,
+      input.info ?? null,
+      input.facebook ?? null,
+      input.telegram ?? null,
+      input.linkedin ?? null,
+      input.instagram ?? null,
+      input.github ?? null,
+      input.role,
+    ],
+  );
+  const id = rows[0]?.id;
+  // No row: the role isn't in the roles table (the seed wasn't run).
+  if (id === undefined) throw new Error(`Role "${input.role}" not found`);
+  return findUserDetailsById(id);
+}
+
+// Returns null when there is no user with this id.
+export async function updateUser(id: number, changes: UpdateUserInput) {
+  // Two fields don't map 1:1 to a column, so turn them into columns first.
+  const { password, role, ...columns } = changes;
+  const set: Record<string, unknown> = { ...columns };
+
+  if (password !== undefined) {
+    set.password_hash = await bcrypt.hash(password, BCRYPT_COST);
+  }
+  if (role !== undefined) {
+    const { rows } = await pool.query<{ id: number }>(
+      "SELECT id FROM roles WHERE title = $1",
+      [role],
+    );
+    if (!rows[0]) throw new Error(`Role "${role}" not found`);
+    set.role_id = rows[0].id;
+  }
+
+  const { set: setSql, values } = buildSet(set);
+  const { rows } = await pool.query<{ id: number }>(
+    `UPDATE users SET ${setSql} WHERE id = $${values.length + 1} RETURNING id`,
+    [...values, id],
+  );
+  if (!rows[0]) return null;
+  return findUserDetailsById(id);
+}
+
+// true when a row was deleted, false when the id didn't exist.
+// Enrollments, progress and exam attempts go with the user (CASCADE);
+// payments block the delete (RESTRICT → RESTRICT_VIOLATION).
+export async function deleteUser(id: number) {
+  const { rowCount } = await pool.query("DELETE FROM users WHERE id = $1", [
+    id,
+  ]);
+  return rowCount === 1;
 }

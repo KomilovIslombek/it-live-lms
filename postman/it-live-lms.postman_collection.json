@@ -370,7 +370,7 @@
               "mode": "raw",
               "raw": "{\n  \"phone\": \"{{adminPhone}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
             },
-            "description": "The Auth folder ends with Logout, so log in again. Also picks a runId (the current time) so the test data has unique names on every run."
+            "description": "The Auth folder ends with Logout, so log in again. Also picks a runId (the current time) so the test data has unique names on every run, and a test student's phone and password from it."
           },
           "event": [
             {
@@ -378,7 +378,10 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.collectionVariables.set(\"runId\", String(Date.now()));"
+                  "const runId = String(Date.now());",
+                  "pm.collectionVariables.set(\"runId\", runId);",
+                  "pm.collectionVariables.set(\"studentPhone\", \"+998\" + runId.slice(-9));",
+                  "pm.collectionVariables.set(\"studentPassword\", \"test-student-\" + runId);"
                 ]
               }
             },
@@ -388,7 +391,39 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
-                  "pm.test(\"Logged in as admin\", () => pm.expect(pm.response.json().user.role).to.eql(\"admin\"));"
+                  "const { user } = pm.response.json();",
+                  "pm.test(\"Logged in as admin\", () => pm.expect(user.role).to.eql(\"admin\"));",
+                  "pm.collectionVariables.set(\"adminId\", user.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Dashboard stats",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/admin/stats",
+            "description": "Counts for the cards on the admin dashboard. Money is a string (exact NUMERIC)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const { stats } = pm.response.json();",
+                  "pm.test(\"Has all the cards\", () => {",
+                  "  pm.expect(stats.users).to.include.keys(\"total\", \"active\", \"by_role\");",
+                  "  pm.expect(stats.users.by_role).to.include.keys(\"admin\", \"mentor\", \"assistant\", \"student\");",
+                  "  pm.expect(stats.courses).to.include.keys(\"total\", \"active\");",
+                  "  pm.expect(stats).to.include.keys(\"categories\", \"enrollments\", \"payments\");",
+                  "});",
+                  "pm.test(\"Counts are numbers, money is a string\", () => {",
+                  "  pm.expect(stats.users.total).to.be.a(\"number\");",
+                  "  pm.expect(stats.payments.revenue).to.be.a(\"string\");",
+                  "});"
                 ]
               }
             }
@@ -534,6 +569,441 @@
                       "  pm.expect(body.error).to.eql(\"Invalid request\");",
                       "  pm.expect(body.details).to.have.property(\"page\");",
                       "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create student",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/users",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"full_name\": \"Test Student {{runId}}\",\n  \"phone\": \"{{studentPhone}}\",\n  \"password\": \"{{studentPassword}}\",\n  \"role\": \"student\",\n  \"email\": \"Student{{runId}}@Example.com\"\n}"
+                },
+                "description": "A test student with a phone and a password made from runId. The email is saved in lowercase."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                      "const { user } = pm.response.json();",
+                      "pm.test(\"Created as an active student\", () => {",
+                      "  pm.expect(user.role).to.eql(\"student\");",
+                      "  pm.expect(user.status).to.be.true;",
+                      "  pm.expect(user.phone).to.eql(pm.collectionVariables.get(\"studentPhone\"));",
+                      "});",
+                      "pm.test(\"Email is lowercase\", () => pm.expect(user.email).to.eql(\"student\" + pm.collectionVariables.get(\"runId\") + \"@example.com\"));",
+                      "pm.test(\"No password or hash in the answer\", () => {",
+                      "  pm.expect(user).to.not.have.property(\"password\");",
+                      "  pm.expect(user).to.not.have.property(\"password_hash\");",
+                      "});",
+                      "pm.collectionVariables.set(\"studentId\", user.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create user with a taken phone → 409",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/users",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"full_name\": \"Copy\",\n  \"phone\": \"{{studentPhone}}\",\n  \"password\": \"another-pass-1\",\n  \"role\": \"student\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 409\", () => pm.response.to.have.status(409));",
+                      "pm.test(\"Says which field is taken\", () => pm.expect(pm.response.json().details).to.have.property(\"phone\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create user with a short password → 400",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/users",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"full_name\": \"Short\",\n  \"phone\": \"+998000000002\",\n  \"password\": \"123\",\n  \"role\": \"student\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                      "pm.test(\"Explains the password field\", () => {",
+                      "  const body = pm.response.json();",
+                      "  pm.expect(body.error).to.eql(\"Invalid request\");",
+                      "  pm.expect(body.details).to.have.property(\"password\");",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create user with a wrong phone → 400",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/users",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"full_name\": \"Wrong phone\",\n  \"phone\": \"901234567\",\n  \"password\": \"long-enough-1\",\n  \"role\": \"student\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                      "pm.test(\"Explains the phone field\", () => {",
+                      "  const body = pm.response.json();",
+                      "  pm.expect(body.error).to.eql(\"Invalid request\");",
+                      "  pm.expect(body.details).to.have.property(\"phone\");",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get user",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/users/{{studentId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "const { user } = pm.response.json();",
+                      "pm.test(\"Full profile, no hash\", () => {",
+                      "  pm.expect(user).to.include.keys(\"job\", \"telegram\", \"courses_count\", \"updated_at\");",
+                      "  pm.expect(user).to.not.have.property(\"password_hash\");",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get user with an invalid id → 400",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/users/abc"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                      "pm.test(\"Error message\", () => pm.expect(pm.response.json().error).to.eql(\"Invalid id\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get unknown user → 404",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/users/2147483647"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));",
+                      "pm.test(\"Error message\", () => pm.expect(pm.response.json().error).to.eql(\"User not found\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Update user",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/admin/users/{{studentId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"full_name\": \"Test Student {{runId}} (renamed)\",\n  \"job\": \"Frontend developer\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "const { user } = pm.response.json();",
+                      "pm.test(\"Changed the sent fields, kept the others\", () => {",
+                      "  pm.expect(user.full_name).to.include(\"(renamed)\");",
+                      "  pm.expect(user.job).to.eql(\"Frontend developer\");",
+                      "  pm.expect(user.phone).to.eql(pm.collectionVariables.get(\"studentPhone\"));",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Filter users by status=true",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/users?status=true&role=student&search={{runId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"Finds the active test student\", () => pm.expect(pm.response.json().total).to.eql(1));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Admin can't deactivate themselves → 400",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/admin/users/{{adminId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": false\n}"
+                },
+                "description": "An admin who switches themselves off is locked out at once. adminId comes from the login."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                      "pm.test(\"Error message\", () => pm.expect(pm.response.json().error).to.eql(\"You can't deactivate your own account\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Admin can't delete themselves → 400",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/admin/users/{{adminId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                      "pm.test(\"Error message\", () => pm.expect(pm.response.json().error).to.eql(\"You can't delete your own account\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Log in as the student",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/auth/login",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"{{studentPhone}}\",\n  \"password\": \"{{studentPassword}}\"\n}"
+                },
+                "description": "The admin's cookie is replaced by the student's."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"Logged in as a student\", () => pm.expect(pm.response.json().user.role).to.eql(\"student\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Student opens the admin panel → 403",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/users",
+                "description": "Logged in (so not 401), but not an admin: requireRole answers 403."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 403\", () => pm.response.to.have.status(403));",
+                      "pm.test(\"Error message\", () => pm.expect(pm.response.json().error).to.eql(\"Insufficient permissions\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Log in as admin again",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/auth/login",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"{{adminPhone}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Deactivate the student",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/admin/users/{{studentId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": false\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"Now inactive\", () => pm.expect(pm.response.json().user.status).to.be.false);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Deactivated student can't log in → 403",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/auth/login",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"{{studentPhone}}\",\n  \"password\": \"{{studentPassword}}\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 403\", () => pm.response.to.have.status(403));",
+                      "pm.test(\"Error message\", () => pm.expect(pm.response.json().error).to.eql(\"Account is deactivated\"));"
                     ]
                   }
                 }
@@ -1177,8 +1647,502 @@
           ]
         },
         {
+          "name": "Course content",
+          "description": "Sections → lessons → materials of the test course. List and create go under the parent, the rest by the item's own id.",
+          "item": [
+            {
+              "name": "Create section",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/courses/{{courseId}}/sections",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Introduction\",\n  \"position\": 1\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                      "const { section } = pm.response.json();",
+                      "pm.test(\"Belongs to the course, no lessons yet\", () => {",
+                      "  pm.expect(section.course_id).to.eql(pm.collectionVariables.get(\"courseId\"));",
+                      "  pm.expect(section.lessons).to.eql([]);",
+                      "});",
+                      "pm.collectionVariables.set(\"sectionId\", section.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create section in an unknown course → 404",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/courses/2147483647/sections",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Lost\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));",
+                      "pm.test(\"Error message\", () => pm.expect(pm.response.json().error).to.eql(\"Course not found\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "List sections of the course",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/courses/{{courseId}}/sections"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"Has the new section\", () => pm.expect(pm.response.json().sections.map((s) => s.id)).to.include(pm.collectionVariables.get(\"sectionId\")));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "List sections of an unknown course → 404",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/courses/2147483647/sections"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Update section",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/admin/sections/{{sectionId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Introduction to the course\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"Renamed\", () => pm.expect(pm.response.json().section.title).to.eql(\"Introduction to the course\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create lesson",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/sections/{{sectionId}}/lessons",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"What is HTML\",\n  \"description\": \"The first lesson\",\n  \"video_url\": \"https://example.com/video.mp4\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                      "const { lesson } = pm.response.json();",
+                      "pm.test(\"Knows its section and course\", () => {",
+                      "  pm.expect(lesson.section_id).to.eql(pm.collectionVariables.get(\"sectionId\"));",
+                      "  pm.expect(lesson.course_id).to.eql(pm.collectionVariables.get(\"courseId\"));",
+                      "  pm.expect(lesson.materials).to.eql([]);",
+                      "});",
+                      "pm.collectionVariables.set(\"lessonId\", lesson.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create lesson without a description → 400",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/sections/{{sectionId}}/lessons",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"No description\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                      "pm.test(\"Explains the description field\", () => {",
+                      "  const body = pm.response.json();",
+                      "  pm.expect(body.error).to.eql(\"Invalid request\");",
+                      "  pm.expect(body.details).to.have.property(\"description\");",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "List lessons of the section",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/sections/{{sectionId}}/lessons"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"One lesson\", () => pm.expect(pm.response.json().lessons.length).to.eql(1));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get section with its lessons",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/sections/{{sectionId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"Lists the lesson\", () => pm.expect(pm.response.json().section.lessons_count).to.eql(1));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create material with two files",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/lessons/{{lessonId}}/materials",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Slides and the code from the lesson\",\n  \"files\": [\n    {\n      \"file_name\": \"slides.pdf\",\n      \"file_path\": \"https://example.com/slides.pdf\",\n      \"mime_type\": \"application/pdf\",\n      \"file_size\": 120000\n    },\n    {\n      \"file_name\": \"code.zip\",\n      \"file_path\": \"https://example.com/code.zip\"\n    }\n  ]\n}"
+                },
+                "description": "The material and its files are saved in one transaction: all or nothing."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                      "const { material } = pm.response.json();",
+                      "pm.test(\"Saved with both files\", () => {",
+                      "  pm.expect(material.files.map((f) => f.file_name)).to.eql([\"slides.pdf\", \"code.zip\"]);",
+                      "});",
+                      "pm.collectionVariables.set(\"materialId\", material.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create material with a broken file → 400",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/lessons/{{lessonId}}/materials",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Bad\",\n  \"files\": [\n    {\n      \"file_name\": \"\"\n    }\n  ]\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                      "pm.test(\"Explains the files field\", () => {",
+                      "  const body = pm.response.json();",
+                      "  pm.expect(body.error).to.eql(\"Invalid request\");",
+                      "  pm.expect(body.details).to.have.property(\"files\");",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Replace the material's files",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/admin/materials/{{materialId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"files\": [\n    {\n      \"file_name\": \"slides-v2.pdf\",\n      \"file_path\": \"https://example.com/slides-v2.pdf\"\n    }\n  ]\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "const { material } = pm.response.json();",
+                      "pm.test(\"Only the new file, same description\", () => {",
+                      "  pm.expect(material.files.map((f) => f.file_name)).to.eql([\"slides-v2.pdf\"]);",
+                      "  pm.expect(material.description).to.eql(\"Slides and the code from the lesson\");",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get lesson with its materials",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/lessons/{{lessonId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"Has the material and its file\", () => {",
+                      "  const { lesson } = pm.response.json();",
+                      "  pm.expect(lesson.materials.length).to.eql(1);",
+                      "  pm.expect(lesson.materials[0].files.length).to.eql(1);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "List materials of the lesson",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/lessons/{{lessonId}}/materials"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"One material\", () => pm.expect(pm.response.json().materials.length).to.eql(1));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Delete material",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/admin/materials/{{materialId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 204\", () => pm.response.to.have.status(204));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get deleted material → 404",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/materials/{{materialId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));",
+                      "pm.test(\"Error message\", () => pm.expect(pm.response.json().error).to.eql(\"Material not found\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Delete section (and its lessons)",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/admin/sections/{{sectionId}}",
+                "description": "ON DELETE CASCADE: the lesson inside goes too."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 204\", () => pm.response.to.have.status(204));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Lesson of the deleted section → 404",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/lessons/{{lessonId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));",
+                      "pm.test(\"Error message\", () => pm.expect(pm.response.json().error).to.eql(\"Lesson not found\"));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
           "name": "Cleanup",
           "item": [
+            {
+              "name": "Delete the test student",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/admin/users/{{studentId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 204\", () => pm.response.to.have.status(204));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get deleted student → 404",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/users/{{studentId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));"
+                    ]
+                  }
+                }
+              ]
+            },
             {
               "name": "Delete course",
               "request": {
@@ -1302,6 +2266,22 @@
       "value": ""
     },
     {
+      "key": "adminId",
+      "value": ""
+    },
+    {
+      "key": "studentPhone",
+      "value": ""
+    },
+    {
+      "key": "studentPassword",
+      "value": ""
+    },
+    {
+      "key": "studentId",
+      "value": ""
+    },
+    {
       "key": "categoryId",
       "value": ""
     },
@@ -1311,6 +2291,18 @@
     },
     {
       "key": "courseId",
+      "value": ""
+    },
+    {
+      "key": "sectionId",
+      "value": ""
+    },
+    {
+      "key": "lessonId",
+      "value": ""
+    },
+    {
+      "key": "materialId",
       "value": ""
     }
   ]
