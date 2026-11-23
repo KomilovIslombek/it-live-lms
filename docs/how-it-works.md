@@ -376,6 +376,15 @@ Desktop и без WSL.
    `it_live_lms`, Username `lms`, Password из корневого `.env`
    (`POSTGRES_PASSWORD`). **Save**.
 
+**Забыл пароль?** Их два, не путай:
+
+- **Пароль базы** (пользователь `lms`): открой корневой `.env` проекта
+  (`notepad .env` из корня) и возьми значение `POSTGRES_PASSWORD`.
+- **Master password pgAdmin** (pgAdmin спрашивает его при запуске, им
+  он шифрует сохранённые пароли): если забыл, в этом окне нажми **Reset
+  Master Password**. pgAdmin забудет сохранённые пароли серверов, задай
+  новый master password и снова введи пароль базы из `.env`.
+
 Таблицы: **IT Live LMS (Docker) → Databases → it_live_lms → Schemas →
 public → Tables**. Данные: правой кнопкой по таблице → **View/Edit Data →
 All Rows**. Свой SQL: выдели базу → **Tools → Query Tool**.
@@ -417,23 +426,88 @@ npm run dev       # http://localhost:4000
 
 ## 11. Показ преподавателю (по шагам)
 
-1. Открой Docker Desktop, база запустится сама. Проверка:
-   `docker compose ps` → `it-live-lms-db` **Up**.
-2. `cd server` → `npm run dev` → «Server is running on
-   http://localhost:4000».
-3. Postman → коллекция **IT Live LMS API** → environment **IT Live LMS
-   (local)** (там твои `adminPhone` и `adminPassword`) → **Run**.
-   Все тесты зелёные: это и есть демонстрация.
-4. Покажи по одному запросу из папки **Admin**:
-   - **Login as admin** — cookie `token`;
-   - **Dashboard stats** — карточки дашборда;
-   - **Create student** → **Student opens the admin panel → 403**:
-     роли работают;
-   - **Create course** → **Create section** → **Create lesson** →
-     **Create material with two files**: дерево курса;
-   - **Delete a category that has courses → 409**: база защищает данные.
-5. Покажи pgAdmin (порт 5433): созданные строки видны в таблицах.
-6. Если спросят «что будет при ошибке»: `server/logs/error.log`.
+### Утром, до урока (5 минут)
 
-Тестовые данные (студент, курс, категория...) коллекция сама удаляет в
-папке **Cleanup**, база остаётся чистой.
+1. Открой **Docker Desktop** и дождись внизу «Engine running». База
+   запустится сама.
+2. Открой проект в VS Code и запусти терминал (Ctrl+`):
+   ```powershell
+   docker compose ps
+   ```
+   `it-live-lms-db` должен быть **Up**.
+3. Запусти сервер:
+   ```powershell
+   cd server
+   npm.cmd run dev
+   ```
+   Должно появиться «Server is running on http://localhost:4000». Этот
+   терминал не закрывай до конца показа.
+   Если порт занят другим проектом (`it-live-LMS-native`), сначала
+   останови его (Ctrl+C в его терминале).
+4. Открой в браузере http://localhost:4000/api/health и проверь, что там
+   `{"status":"ok","database":"ok"}`.
+5. В Postman: **Import** → `postman/it-live-lms.postman_collection.json`
+   (если спросит, выбери **Replace**). Справа вверху выбери environment
+   **IT Live LMS (local)**. Нажми **Run** на коллекции: все тесты должны
+   быть зелёные. Если что-то красное, это видно до урока, а не во время.
+6. Открой pgAdmin и подключись к серверу на порту **5433** (раздел 8).
+
+### Сам показ (10–15 минут)
+
+**1. Что это и из чего сделано (1 минута).** «LMS для онлайн-школы:
+админ создаёт пользователей, курсы, разделы, уроки и материалы. Сервер на
+Node.js + Express + TypeScript, база PostgreSQL в Docker, SQL пишу сам
+через `pg`, без ORM. Всё проверено тестами в Postman.»
+В VS Code покажи папку `server/src` и путь запроса: `routes →
+controllers → schemas → services → db` (раздел 3).
+
+**2. База (1 минута).** Docker Desktop → контейнер `it-live-lms-db`.
+pgAdmin → `it_live_lms` → Tables: 18 таблиц. Скажи: «Схема лежит в
+`docs/database/*.sql`, Docker загружает её при первом запуске».
+
+**3. Все тесты сразу (2 минуты).** Postman → коллекция → **Run** →
+**Run IT Live LMS API**. 85 запросов, 167 проверок, все зелёные. Скажи:
+«Каждый маршрут проверен: правильные ответы, ошибки 400/401/403/404/409,
+пароли нигде не возвращаются. Тесты сами за собой убирают».
+
+**4. По одному запросу (5–7 минут).** Открывай запросы из папки
+**Admin** по порядку и нажимай **Send**. Порядок важен: каждый
+запоминает id для следующих.
+
+| Запрос                                                                                     | Что сказать                                                            |
+| ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| Auth → **Login**                                                                           | Вход по телефону. Токен JWT в httpOnly cookie, JavaScript его не видит |
+| Auth → **Me without a cookie → 401**                                                       | Без входа не пускает                                                   |
+| Admin → **Login as admin**                                                                 | Снова вход (папка Auth кончается выходом)                              |
+| **Dashboard stats**                                                                        | Числа для карточек дашборда, одним SQL-запросом                        |
+| Users → **List users**                                                                     | Поиск, фильтр по роли и статусу, пагинация, `total`                    |
+| Users → **Create student**                                                                 | Пароль хранится как bcrypt-хэш, в ответе его нет                       |
+| Users → **Create user with a taken phone → 409**                                           | Телефон уникален, база не даст дубль                                   |
+| Users → **Log in as the student**, затем **Student opens the admin panel → 403**           | Роли работают: студент в админку не попадает                           |
+| Users → **Log in as admin again**                                                          | Возвращаемся админом                                                   |
+| Categories → **Create category**, Levels → **Create level**, Courses → **Create course**   | Каталог. `slug` делается из названия                                   |
+| Courses → **List courses with filters**                                                    | Поиск + фильтры + страницы                                             |
+| Course content → **Create section**, **Create lesson**, **Create material with two files** | Дерево курса. Материал и файлы сохраняются одной транзакцией           |
+| Courses → **Delete a category that has courses → 409**                                     | База защищает данные (RESTRICT)                                        |
+
+**5. Данные в базе (1 минута).** Пока не запущен Cleanup, тестовые
+строки лежат в базе. pgAdmin → таблица `courses` (или `users`,
+`materials`) → правой кнопкой **View/Edit Data → All Rows**: это те
+самые строки, которые создал Postman.
+
+**6. Уборка.** Отправь запросы из папки **Cleanup** по порядку: тестовые
+данные удалятся. Можно показать, что после **Delete section** урок тоже
+пропал (каскадное удаление).
+
+**7. Ошибки (если спросят).** Ошибки 500 пишутся в
+`server/logs/error.log`: время, адрес и стек, без паролей (раздел 5).
+
+### Частые вопросы и где ответ
+
+- «Почему нет ORM?» — раздел 2.
+- «Как работает вход и почему cookie?» — раздел 4.
+- «Что такое 401 и 403?» — раздел 5.1 («Защита»).
+- «Как защищаешься от SQL-инъекций?» — `$1, $2` в каждом запросе
+  (раздел 3), и `buildSet` (раздел 5.1, пункт 1).
+- «Что такое транзакция?» — раздел 5.4.
+- «Зачем Docker?» — раздел 7.

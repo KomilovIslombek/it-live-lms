@@ -73,7 +73,18 @@ sides, the React frontend, first deploy.
 
 **Next:** the user re-imports the Postman collection, runs it against
 their real server, and reads §5.1–5.4 and §11 before the exam
-(2026-11-24).
+(2026-11-24). 2026-11-23 evening: the real server was started by Claude
+in a Terminal tab ("LMS server") on port 4000 after the user stopped
+their other project (`C:
+6-fullstack
+ative-tasksit-live-LMS-native`,
+nodemon on the same port; it answers `{"status":"OK"}`, ours
+`{"status":"ok","database":"ok"}`). Health, 401 and login checks pass
+against the real DB. The user forgot the pgAdmin password: §8 now says
+which of the two it is (database `POSTGRES_PASSWORD` in root `.env` vs.
+pgAdmin's master password, reset in its dialog). §11 is now a full demo
+script: morning checklist, 7-part show with what to say per request,
+FAQ pointers.
 
 ## Step 3 log (backend auth, done)
 
