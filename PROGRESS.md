@@ -1,6 +1,6 @@
 # Progress
 
-Last updated: 2026-11-23
+Last updated: 2026-11-24
 
 ## Deadline (set 2026-11-21)
 
@@ -67,17 +67,61 @@ a scratch copy: **85 requests, 167 assertions, 0 failed, run twice, no
   (catalog, users, stats, content) and §11 (step-by-step demo for the
   teacher).
 
-**Not done (after the exam, or if time):** exams/questions and exercises
-CRUD, payments list, enrollments, real file uploads, mentor and student
-sides, the React frontend, first deploy.
+### Mentor and student APIs (2026-11-24, by Claude, user asked "сделай также этапы студента и ментора", no payments)
+
+- **Schema:** new table `course_mentors` (course_id, user_id, UNIQUE pair,
+  both FKs CASCADE) in `drawsql-1` (now 9 tables, 19 in total) + trigger
+  (17 triggers). Answers open question 1: any number of mentors per
+  course. **First migration:** `docs/database/migrations/001-course-mentors.sql`
+  (idempotent, in a transaction). Tested on a scratch DB built from the
+  old schema: same result as a fresh load. **Applied to the user's real
+  Docker DB on 2026-11-24** (18 → 19 tables, data kept).
+- **Access guard:** `services/access.service.ts → courseIdOf(kind, id)`
+  walks question → exam → lesson → section → course in SQL;
+  `middleware/course-access.middleware.ts` builds guards: `allowAll`
+  (admin), `mentorOwnsCourse`, `studentEnrolled` (enrolled AND course
+  status true). Bad id / missing item → passes on, so the controller
+  answers 400 / 404; otherwise 403 with a message.
+- **`routes/content.routes.ts` is now `createContentRouter(guard)`**,
+  mounted by the admin router with `allowAll` and by the mentor router
+  with `mentorOwnsCourse`. New content routes in it: exercises (+ files,
+  `exercise.service.ts`, same transaction pattern as materials), exams,
+  questions (`exam.service.ts`, admins/mentors see `correct_answer`),
+  `GET /courses/:courseId/students` (progress) and `/results`.
+- **Admin only:** `GET/POST /courses/:courseId/mentors`,
+  `DELETE .../mentors/:userId`, `POST /courses/:courseId/students`,
+  `DELETE .../students/:userId` (`enrollment.service.ts`: INSERT ... SELECT
+  with the role check → 400 if wrong role, 409 if already in).
+- **Mentor** `/api/v1/mentor` (`mentor.routes.ts`): `GET /courses`,
+  `GET /courses/:id` (+ sections), then the whole content router.
+- **Student** `/api/v1/student` (`student.routes.ts`,
+  `student.service.ts`): `GET /courses` (progress), `GET /courses/:id`
+  (sections → lessons with `completed`), `GET /lessons/:id` (materials,
+  exercises, exams without answers), `POST/DELETE /lessons/:id/complete`
+  (ON CONFLICT DO NOTHING), `GET /exams/:id` (no `correct_answer`),
+  `POST /exams/:id/attempts` (scored on the server, unanswered = wrong,
+  passed = score ≥ pass_percent, saved in `exam_attempts`),
+  `GET /results`.
+- **Postman:** new top-level folder **Mentor and student** (1. Setup, 2. Mentor, 3. Student, 4. Mentor sees the results, 5. Cleanup); generator
+  script in the scratchpad (`gen/add-roles-folder.mjs`, may be gone).
+  Whole collection on a scratch copy: **159 requests, 288 assertions, 0
+  failed, run twice, no 500s, DB clean afterwards** (only the admin).
+  By hand also: course switched off → student 403 and empty list;
+  unlinked mentor → 403; mentor has no enrollment routes (404).
+  **Cloud copy still not synced**: the user re-imports the file.
+- **Docs:** README API (exercises, exams, members, mentor, student),
+  `docs/how-it-works.md` §5.5 and §11 step 4б.
+- **Not done:** homework submissions and grading (no table yet),
+  payments (user: not now), assistants, certificates, the frontend.
+
+**Not done:** payments, homework grading, real file uploads, the React
+frontend, first deploy.
 
 **Next:** the user re-imports the Postman collection, runs it against
 their real server, and reads §5.1–5.4 and §11 before the exam
 (2026-11-24). 2026-11-23 evening: the real server was started by Claude
 in a Terminal tab ("LMS server") on port 4000 after the user stopped
-their other project (`C:
-6-fullstack
-ative-tasksit-live-LMS-native`,
+their other project (`C:/n6-fullstack/native-tasks/it-live-LMS-native`,
 nodemon on the same port; it answers `{"status":"OK"}`, ours
 `{"status":"ok","database":"ok"}`). Health, 401 and login checks pass
 against the real DB. The user forgot the pgAdmin password: §8 now says
@@ -252,17 +296,20 @@ Steps 1–7 are v1: a deployed project the user can show.
 
 ## Open questions (the user will clarify)
 
-1. Mentors per course: one or two? No course ↔ mentor link in the schema
-   yet.
+1. ~~Mentors per course: one or two?~~ Solved 2026-11-24 with the
+   `course_mentors` table: any number.
 2. Do exams belong to a lesson or a section? `exams.lesson_id` for now.
 
 ## Database notes
 
-- 18 tables in `docs/database/`: `drawsql-1-users-courses-payments.sql`
-  (8 tables), `drawsql-2-course-content.sql` (10 tables, plus
+- 19 tables in `docs/database/`: `drawsql-1-users-courses-payments.sql`
+  (9 tables, incl. `course_mentors`), `drawsql-2-course-content.sql` (10 tables, plus
   `CREATE TABLE IF NOT EXISTS` copies of users and courses so drawsql can
   draw its arrows), and `setup-timezone-and-triggers.sql` (Asia/Tashkent
-  time zone and 16 `updated_at` triggers; not for drawsql).
+  time zone and 17 `updated_at` triggers; not for drawsql). Changes to a
+  database that already has data go in `docs/database/migrations/NNN-*.sql`
+  (idempotent, in a transaction, with the run command in the header),
+  AND in the main files for fresh installs.
 - The repo SQL files are the source of truth; drawsql is only for viewing
   (its export drops ON DELETE rules).
 - Conventions (the user's choices): `SERIAL PRIMARY KEY`, INTEGER only,

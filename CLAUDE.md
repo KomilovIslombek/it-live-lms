@@ -90,6 +90,17 @@ Vite, some Tailwind and shadcn. Docker: theory from videos only.
   `export PATH="/c/Users/i7/AppData/Local/Programs/DockerDesktop/resources/bin:$PATH"`.
 - `postgres:18` image: mount the data volume at `/var/lib/postgresql`, not
   `/var/lib/postgresql/data` (Postgres 18 moved its data directory).
+- Schema changes: edit the main SQL files (fresh installs) AND add an
+  idempotent `docs/database/migrations/NNN-*.sql` for the user's existing
+  DB. Test it on a scratch DB built from `git show HEAD:docs/database/*`,
+  then run it on the real DB:
+  `docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1' < docs/database/migrations/NNN-....sql`.
+  It adds, never drops, so no `down -v`. 001 (course_mentors) applied
+  2026-11-24.
+- Access by role: `requireRole` checks the role; `createContentRouter(guard)`
+  (admin `allowAll`, mentor `mentorOwnsCourse`) and `studentEnrolled`
+  check the course of the item in the URL. A new content route must get
+  `guard(kind, param)` or mentors could reach other courses.
 - Files in `/docker-entrypoint-initdb.d` run only when the data volume is
   empty (first start). After a schema change, `docker compose down -v`
   wipes the volume and the next `up` reloads the schema. That deletes all

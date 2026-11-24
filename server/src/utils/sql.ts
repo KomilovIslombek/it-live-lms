@@ -15,7 +15,7 @@ import type { PoolClient } from "pg";
 // (GET /courses/7/sections → 404 when course 7 doesn't exist).
 // The table name is one of these fixed strings, never from the request.
 export async function rowExists(
-  table: "courses" | "sections" | "lessons" | "materials",
+  table: "courses" | "sections" | "lessons" | "materials" | "exams",
   id: number,
 ) {
   const { rowCount } = await pool.query(

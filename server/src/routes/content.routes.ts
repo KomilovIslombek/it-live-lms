@@ -20,30 +20,141 @@ import {
   listMaterials,
   updateMaterial,
 } from "../controllers/material.controller.js";
+import {
+  createExercise,
+  deleteExercise,
+  getExercise,
+  listExercises,
+  updateExercise,
+} from "../controllers/exercise.controller.js";
+import {
+  createExam,
+  createQuestion,
+  deleteExam,
+  deleteQuestion,
+  getExam,
+  getQuestion,
+  listExams,
+  listQuestions,
+  updateExam,
+  updateQuestion,
+} from "../controllers/exam.controller.js";
+import {
+  listCourseResults,
+  listCourseStudents,
+} from "../controllers/enrollment.controller.js";
+import type { CourseGuard } from "../middleware/course-access.middleware.js";
 
-// Course content: course → sections → lessons → materials.
-// The pattern: list and create go under the parent
-// (/courses/7/sections), everything about one item uses its own id
-// (/sections/3). Short URLs, and no need to send the parent's id twice.
-// Mounted inside the admin router (admin only).
-const router = Router();
+// Course content: course → sections → lessons → materials / exercises /
+// exams → questions.
+//
+// The pattern: list and create go under the parent (/courses/7/sections),
+// everything about one item uses its own id (/sections/3). Short URLs,
+// and no need to send the parent's id twice.
+//
+// The same routes serve two panels, so this is a function, not one router:
+// - admin:  createContentRouter(allowAll)          → every course
+// - mentor: createContentRouter(mentorOwnsCourse)  → only their courses
+// `guard(kind, param)` runs before each controller and checks which
+// course the item in the URL belongs to.
+export function createContentRouter(guard: CourseGuard) {
+  const router = Router();
 
-router.get("/courses/:courseId/sections", listSections);
-router.post("/courses/:courseId/sections", createSection);
-router.get("/sections/:id", getSection);
-router.patch("/sections/:id", updateSection);
-router.delete("/sections/:id", deleteSection);
+  router.get(
+    "/courses/:courseId/sections",
+    guard("course", "courseId"),
+    listSections,
+  );
+  router.post(
+    "/courses/:courseId/sections",
+    guard("course", "courseId"),
+    createSection,
+  );
+  router.get("/sections/:id", guard("section", "id"), getSection);
+  router.patch("/sections/:id", guard("section", "id"), updateSection);
+  router.delete("/sections/:id", guard("section", "id"), deleteSection);
 
-router.get("/sections/:sectionId/lessons", listLessons);
-router.post("/sections/:sectionId/lessons", createLesson);
-router.get("/lessons/:id", getLesson);
-router.patch("/lessons/:id", updateLesson);
-router.delete("/lessons/:id", deleteLesson);
+  router.get(
+    "/sections/:sectionId/lessons",
+    guard("section", "sectionId"),
+    listLessons,
+  );
+  router.post(
+    "/sections/:sectionId/lessons",
+    guard("section", "sectionId"),
+    createLesson,
+  );
+  router.get("/lessons/:id", guard("lesson", "id"), getLesson);
+  router.patch("/lessons/:id", guard("lesson", "id"), updateLesson);
+  router.delete("/lessons/:id", guard("lesson", "id"), deleteLesson);
 
-router.get("/lessons/:lessonId/materials", listMaterials);
-router.post("/lessons/:lessonId/materials", createMaterial);
-router.get("/materials/:id", getMaterial);
-router.patch("/materials/:id", updateMaterial);
-router.delete("/materials/:id", deleteMaterial);
+  router.get(
+    "/lessons/:lessonId/materials",
+    guard("lesson", "lessonId"),
+    listMaterials,
+  );
+  router.post(
+    "/lessons/:lessonId/materials",
+    guard("lesson", "lessonId"),
+    createMaterial,
+  );
+  router.get("/materials/:id", guard("material", "id"), getMaterial);
+  router.patch("/materials/:id", guard("material", "id"), updateMaterial);
+  router.delete("/materials/:id", guard("material", "id"), deleteMaterial);
 
-export default router;
+  router.get(
+    "/lessons/:lessonId/exercises",
+    guard("lesson", "lessonId"),
+    listExercises,
+  );
+  router.post(
+    "/lessons/:lessonId/exercises",
+    guard("lesson", "lessonId"),
+    createExercise,
+  );
+  router.get("/exercises/:id", guard("exercise", "id"), getExercise);
+  router.patch("/exercises/:id", guard("exercise", "id"), updateExercise);
+  router.delete("/exercises/:id", guard("exercise", "id"), deleteExercise);
+
+  router.get(
+    "/lessons/:lessonId/exams",
+    guard("lesson", "lessonId"),
+    listExams,
+  );
+  router.post(
+    "/lessons/:lessonId/exams",
+    guard("lesson", "lessonId"),
+    createExam,
+  );
+  router.get("/exams/:id", guard("exam", "id"), getExam);
+  router.patch("/exams/:id", guard("exam", "id"), updateExam);
+  router.delete("/exams/:id", guard("exam", "id"), deleteExam);
+
+  router.get(
+    "/exams/:examId/questions",
+    guard("exam", "examId"),
+    listQuestions,
+  );
+  router.post(
+    "/exams/:examId/questions",
+    guard("exam", "examId"),
+    createQuestion,
+  );
+  router.get("/questions/:id", guard("question", "id"), getQuestion);
+  router.patch("/questions/:id", guard("question", "id"), updateQuestion);
+  router.delete("/questions/:id", guard("question", "id"), deleteQuestion);
+
+  // Read-only views of a course's students (with progress) and results.
+  router.get(
+    "/courses/:courseId/students",
+    guard("course", "courseId"),
+    listCourseStudents,
+  );
+  router.get(
+    "/courses/:courseId/results",
+    guard("course", "courseId"),
+    listCourseResults,
+  );
+
+  return router;
+}

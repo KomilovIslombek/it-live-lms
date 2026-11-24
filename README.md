@@ -4,9 +4,8 @@ A learning management system for an online IT school. Admins build
 courses (sections → lessons → materials, assignments and exams), mentors
 teach and grade, and students learn and track their progress.
 
-> **Status: admin API done, frontend next.** Login and the whole admin
-> backend (users, dashboard stats, catalog, course content) work and are
-> covered by Postman tests. The React screens come next. See
+> **Status: backend done for all three roles, frontend next.** Login, the
+> admin, mentor and student APIs work and are covered by Postman tests. The React screens come next. See
 > [What's built](#whats-built) below.
 
 ## Roles
@@ -109,7 +108,7 @@ routes: `GET /<name>`, `GET /<name>/:id`, `POST /<name>`,
 - Course `price` is returned as a string (`"1200000.00"`): PostgreSQL
   `NUMERIC` is exact, and it stays exact in JSON.
 
-**Course content** (course → sections → lessons → materials). List and
+**Course content** (course → sections → lessons → materials, exercises, exams → questions). List and
 create go under the parent, everything else uses the item's own id:
 
 | Method             | Path                           | Description                                                          |
@@ -120,10 +119,52 @@ create go under the parent, everything else uses the item's own id:
 | GET, PATCH, DELETE | `/lessons/:id`                 | One lesson (GET includes its materials and their files)              |
 | GET, POST          | `/lessons/:lessonId/materials` | Materials of a lesson, each with `files: [{ file_name, file_path }]` |
 | GET, PATCH, DELETE | `/materials/:id`               | One material; `files` in a PATCH replaces the whole list             |
+| GET, POST          | `/lessons/:lessonId/exercises` | Homework tasks of a lesson (`title` + `files`), like materials       |
+| GET, PATCH, DELETE | `/exercises/:id`               | One exercise                                                         |
+| GET, POST          | `/lessons/:lessonId/exams`     | Exams of a lesson (`title`, `pass_percent`, default 60)              |
+| GET, PATCH, DELETE | `/exams/:id`                   | One exam (GET includes its questions with the correct answers)       |
+| GET, POST          | `/exams/:examId/questions`     | Questions: `question`, `answer_a`…`answer_d`, `correct_answer` a–d   |
+| GET, PATCH, DELETE | `/questions/:id`               | One question                                                         |
+| GET                | `/courses/:courseId/students`  | Enrolled students with their progress (lessons done / all lessons)   |
+| GET                | `/courses/:courseId/results`   | Every exam attempt in the course, newest first                       |
 
 A material and its files are saved in one transaction (all or nothing).
 Deleting a course, section or lesson deletes everything inside it. Files
 are links for now; real uploads come later.
+
+**Course members** (admin only). Payments aren't built yet, so the admin
+links mentors and enrolls students by hand:
+
+| Method    | Path                                  | Description                                                           |
+| --------- | ------------------------------------- | --------------------------------------------------------------------- |
+| GET, POST | `/courses/:courseId/mentors`          | `{ "user_id": 5 }`; 400 if the user isn't a mentor, 409 if already in |
+| DELETE    | `/courses/:courseId/mentors/:userId`  | Unlink a mentor                                                       |
+| POST      | `/courses/:courseId/students`         | `{ "user_id": 7 }`; 400 if not a student, 409 if already enrolled     |
+| DELETE    | `/courses/:courseId/students/:userId` | Unenroll (progress and results are kept)                              |
+
+**Mentor panel** `/api/v1/mentor` (role `mentor`). The mentor works only
+in the courses they are linked to; anything else answers 403.
+
+| Method | Path                       | Description                                                                                                                                  |
+| ------ | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/courses`                 | My courses with sections, lessons and students counts                                                                                        |
+| GET    | `/courses/:id`             | One of my courses with its sections                                                                                                          |
+| …      | every course content route | The same content routes as the admin's (sections, lessons, materials, exercises, exams, questions, students, results), limited to my courses |
+
+Mentors can't create courses, change users or enroll students.
+
+**Student side** `/api/v1/student` (role `student`). Only enrolled courses
+that are switched on; anything else answers 403.
+
+| Method       | Path                    | Description                                                                                             |
+| ------------ | ----------------------- | ------------------------------------------------------------------------------------------------------- |
+| GET          | `/courses`              | My courses with `lessons_done`, `lessons_total` and `progress_percent`                                  |
+| GET          | `/courses/:id`          | Sections and lessons, each lesson with `completed`                                                      |
+| GET          | `/lessons/:id`          | Video, materials, exercises, exams (no answers) and `completed`                                         |
+| POST, DELETE | `/lessons/:id/complete` | Mark a lesson as done / not done (marking twice is fine)                                                |
+| GET          | `/exams/:id`            | The questions without the correct answers                                                               |
+| POST         | `/exams/:id/attempts`   | `{ "answers": [{ "question_id": 5, "answer": "b" }] }`: the server counts the score; unanswered = wrong |
+| GET          | `/results`              | All my exam attempts                                                                                    |
 
 Errors are always JSON: `{ "error": "..." }`, plus `details` for
 validation errors (400). The client gets only "Internal server error" for
@@ -153,18 +194,20 @@ postman collection run postman/it-live-lms.postman_collection.json \
 
 ## Database
 
-18 tables in two files, split so each one can be imported into
+19 tables in two files, split so each one can be imported into
 [drawSQL](https://drawsql.app) as a diagram (the free plan allows 15
 tables per diagram), plus one setup file:
 
-| File                                   | Contents                                       |
-| -------------------------------------- | ---------------------------------------------- |
-| `drawsql-1-users-courses-payments.sql` | users, roles, courses, enrollments, payments   |
-| `drawsql-2-course-content.sql`         | sections, lessons, materials, exams, progress  |
-| `setup-timezone-and-triggers.sql`      | Tashkent time zone, auto-updating `updated_at` |
+| File                                   | Contents                                              |
+| -------------------------------------- | ----------------------------------------------------- |
+| `drawsql-1-users-courses-payments.sql` | users, roles, courses, mentors, enrollments, payments |
+| `drawsql-2-course-content.sql`         | sections, lessons, materials, exams, progress         |
+| `setup-timezone-and-triggers.sql`      | Tashkent time zone, auto-updating `updated_at`        |
 
 Docker Compose loads all three automatically the first time the database
-starts with an empty volume.
+starts with an empty volume. A database that already has data gets later
+changes from `docs/database/migrations/` (each file says how to run it):
+`001-course-mentors.sql` adds the mentor ↔ course link.
 
 ## What's built
 
@@ -179,8 +222,10 @@ starts with an empty volume.
 - [x] Admin: categories, levels and courses (CRUD with search, filters and
       pagination)
 - [x] Admin: sections, lessons, materials (files as links for now)
-- [ ] Student: my courses, lessons, progress
-- [ ] Mentor: assignments, exams, grading, results
+- [x] Student API: my courses with progress, lessons, marking lessons done, exams scored on the server, my results
+- [x] Mentor API: my courses, the same content tools limited to them, students with progress, exam results
+- [x] Admin: exercises, exams and questions; linking mentors and enrolling students
+- [ ] Grading homework (needs a submissions table), the React frontend, deploy
 - [ ] Payments, comments, certificates, landing page
 
 ## Credits

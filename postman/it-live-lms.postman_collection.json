@@ -2258,6 +2258,1872 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Mentor and student",
+      "description": "The three roles together: the admin prepares a course, a mentor and a student; the mentor works only in their course; the student studies, takes the exam; the mentor sees the results. Everything is deleted at the end.",
+      "item": [
+        {
+          "name": "1. Setup (admin)",
+          "description": "The admin creates a course with content, a second course nobody is linked to, a mentor and a student, then links them.",
+          "item": [
+            {
+              "name": "Login as admin",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/auth/login",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"{{adminPhone}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+                },
+                "description": "Also picks a runId and test phones/passwords for the mentor and the student."
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const runId = String(Date.now());",
+                      "pm.collectionVariables.set(\"runId\", runId);",
+                      "pm.collectionVariables.set(\"mentorPhone\", \"+998\" + String(Number(runId.slice(-9)) + 1).padStart(9, \"0\").slice(-9));",
+                      "pm.collectionVariables.set(\"studentPhone\", \"+998\" + runId.slice(-9));",
+                      "pm.collectionVariables.set(\"mentorPassword\", \"test-mentor-\" + runId);",
+                      "pm.collectionVariables.set(\"studentPassword\", \"test-student-\" + runId);"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "const { user } = pm.response.json();",
+                      "pm.test(\"Admin\", () => pm.expect(user.role).to.eql(\"admin\"));",
+                      "pm.collectionVariables.set(\"adminId\", user.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create category",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/categories",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Roles test {{runId}}\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set(\"categoryId\", pm.response.json().category.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create level",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/levels",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Roles level {{runId}}\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set(\"levelId\", pm.response.json().level.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create the mentor's course",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/courses",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Roles course {{runId}}\",\n  \"description\": \"Taught by the test mentor\",\n  \"price\": 500000,\n  \"banner\": \"https://example.com/b.jpg\",\n  \"category_id\": {{categoryId}},\n  \"level_id\": {{levelId}}\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set(\"courseId\", pm.response.json().course.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create another course",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/courses",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Other course {{runId}}\",\n  \"description\": \"Nobody is linked to it\",\n  \"price\": 1,\n  \"banner\": \"x.jpg\",\n  \"category_id\": {{categoryId}},\n  \"level_id\": {{levelId}}\n}"
+                },
+                "description": "Used to check that a mentor or a student can't open a course that isn't theirs."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set(\"otherCourseId\", pm.response.json().course.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create section",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/courses/{{courseId}}/sections",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Week 1\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set(\"sectionId\", pm.response.json().section.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create lesson",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/sections/{{sectionId}}/lessons",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Intro\",\n  \"description\": \"The first lesson\",\n  \"video_url\": \"https://example.com/v.mp4\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set(\"lessonId\", pm.response.json().lesson.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create material",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/lessons/{{lessonId}}/materials",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Slides\",\n  \"files\": [\n    {\n      \"file_name\": \"slides.pdf\",\n      \"file_path\": \"https://example.com/slides.pdf\"\n    }\n  ]\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create exercise with a file",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/lessons/{{lessonId}}/exercises",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Homework: build a page\",\n  \"files\": [\n    {\n      \"file_name\": \"task.pdf\",\n      \"file_path\": \"https://example.com/task.pdf\"\n    }\n  ]\n}"
+                },
+                "description": "Exercises (Vazifalar) work like materials: a row and its files in one transaction."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                      "const { exercise } = pm.response.json();",
+                      "pm.test(\"Saved with its file\", () => pm.expect(exercise.files.map((f) => f.file_name)).to.eql([\"task.pdf\"]));",
+                      "pm.collectionVariables.set(\"exerciseId\", exercise.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create exercise without a title → 400",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/lessons/{{lessonId}}/exercises",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"files\": []\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                      "pm.test(\"Explains the title field\", () => {",
+                      "  const body = pm.response.json();",
+                      "  pm.expect(body.error).to.eql(\"Invalid request\");",
+                      "  pm.expect(body.details).to.have.property(\"title\");",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Update exercise",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/admin/exercises/{{exerciseId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Homework: build a landing page\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"Renamed, file kept\", () => { const { exercise } = pm.response.json(); pm.expect(exercise.title).to.include(\"landing\"); pm.expect(exercise.files.length).to.eql(1); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create exam",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/lessons/{{lessonId}}/exams",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Quiz 1\",\n  \"pass_percent\": 50\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                      "const { exam } = pm.response.json();",
+                      "pm.test(\"No questions yet, pass at 50%\", () => { pm.expect(exam.questions).to.eql([]); pm.expect(exam.pass_percent).to.eql(50); });",
+                      "pm.collectionVariables.set(\"examId\", exam.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create exam with pass_percent 150 → 400",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/lessons/{{lessonId}}/exams",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Impossible\",\n  \"pass_percent\": 150\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                      "pm.test(\"Explains the pass_percent field\", () => {",
+                      "  const body = pm.response.json();",
+                      "  pm.expect(body.error).to.eql(\"Invalid request\");",
+                      "  pm.expect(body.details).to.have.property(\"pass_percent\");",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create question 1 (answer b)",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/exams/{{examId}}/questions",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"question\": \"What does HTML stand for?\",\n  \"answer_a\": \"Hot Mail\",\n  \"answer_b\": \"HyperText Markup Language\",\n  \"answer_c\": \"High Tech\",\n  \"answer_d\": \"None\",\n  \"correct_answer\": \"b\",\n  \"position\": 1\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set(\"q1Id\", pm.response.json().question.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create question 2 (answer d)",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/exams/{{examId}}/questions",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"question\": \"Which tag makes a link?\",\n  \"answer_a\": \"<p>\",\n  \"answer_b\": \"<div>\",\n  \"answer_c\": \"<img>\",\n  \"answer_d\": \"<a>\",\n  \"correct_answer\": \"d\",\n  \"position\": 2\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set(\"q2Id\", pm.response.json().question.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create question with answer e → 400",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/exams/{{examId}}/questions",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"question\": \"Broken\",\n  \"answer_a\": \"1\",\n  \"answer_b\": \"2\",\n  \"answer_c\": \"3\",\n  \"answer_d\": \"4\",\n  \"correct_answer\": \"e\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                      "pm.test(\"Explains the correct_answer field\", () => {",
+                      "  const body = pm.response.json();",
+                      "  pm.expect(body.error).to.eql(\"Invalid request\");",
+                      "  pm.expect(body.details).to.have.property(\"correct_answer\");",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get exam with questions",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/exams/{{examId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "const { exam } = pm.response.json();",
+                      "pm.test(\"Two questions, in position order, with answers\", () => {",
+                      "  pm.expect(exam.questions.map((q) => q.correct_answer)).to.eql([\"b\", \"d\"]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Update question",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/admin/questions/{{q2Id}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"question\": \"Which tag makes a hyperlink?\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"Changed, answer kept\", () => { const { question } = pm.response.json(); pm.expect(question.question).to.include(\"hyperlink\"); pm.expect(question.correct_answer).to.eql(\"d\"); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create mentor",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/users",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"full_name\": \"Test Mentor {{runId}}\",\n  \"phone\": \"{{mentorPhone}}\",\n  \"password\": \"{{mentorPassword}}\",\n  \"role\": \"mentor\",\n  \"job\": \"Frontend developer\",\n  \"experience\": 5\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                      "pm.test(\"Mentor with a profile\", () => { const { user } = pm.response.json(); pm.expect(user.role).to.eql(\"mentor\"); pm.expect(user.experience).to.eql(5); });",
+                      "pm.collectionVariables.set(\"mentorId\", pm.response.json().user.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create student",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/users",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"full_name\": \"Test Student {{runId}}\",\n  \"phone\": \"{{studentPhone}}\",\n  \"password\": \"{{studentPassword}}\",\n  \"role\": \"student\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set(\"studentId\", pm.response.json().user.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Link the mentor to the course",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/courses/{{courseId}}/mentors",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"user_id\": {{mentorId}}\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                      "pm.test(\"Returns the mentor\", () => pm.expect(pm.response.json().mentor.user_id).to.eql(pm.collectionVariables.get(\"mentorId\")));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Link the same mentor again → 409",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/courses/{{courseId}}/mentors",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"user_id\": {{mentorId}}\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 409\", () => pm.response.to.have.status(409));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Link a student as mentor → 400",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/courses/{{courseId}}/mentors",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"user_id\": {{studentId}}\n}"
+                },
+                "description": "INSERT ... SELECT checks the role: only users with the mentor role can be linked."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                      "pm.test(\"Explains the user_id field\", () => {",
+                      "  const body = pm.response.json();",
+                      "  pm.expect(body.error).to.eql(\"Invalid request\");",
+                      "  pm.expect(body.details).to.have.property(\"user_id\");",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "List the course's mentors",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/courses/{{courseId}}/mentors"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"One mentor\", () => pm.expect(pm.response.json().mentors.length).to.eql(1));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Enroll the student",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/courses/{{courseId}}/students",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"user_id\": {{studentId}}\n}"
+                },
+                "description": "No payments yet, so the admin enrolls students by hand."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                      "pm.test(\"Starts at 0%\", () => pm.expect(pm.response.json().student.progress_percent).to.eql(0));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Enroll the same student again → 409",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/courses/{{courseId}}/students",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"user_id\": {{studentId}}\n}"
+                },
+                "description": "A student can enroll in a course only once (UNIQUE in the database)."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 409\", () => pm.response.to.have.status(409));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Enroll a mentor as student → 400",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/courses/{{courseId}}/students",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"user_id\": {{mentorId}}\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                      "pm.test(\"Explains the user_id field\", () => {",
+                      "  const body = pm.response.json();",
+                      "  pm.expect(body.error).to.eql(\"Invalid request\");",
+                      "  pm.expect(body.details).to.have.property(\"user_id\");",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "List the course's students",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/courses/{{courseId}}/students"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"One student\", () => pm.expect(pm.response.json().students.length).to.eql(1));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "2. Mentor",
+          "description": "The mentor's panel (/api/v1/mentor): only the courses they are linked to.",
+          "item": [
+            {
+              "name": "Log in as the mentor",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/auth/login",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"{{mentorPhone}}\",\n  \"password\": \"{{mentorPassword}}\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"Logged in as mentor\", () => pm.expect(pm.response.json().user.role).to.eql(\"mentor\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "My courses",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/mentor/courses"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "const { courses } = pm.response.json();",
+                      "pm.test(\"Only the linked course\", () => { pm.expect(courses.length).to.eql(1); pm.expect(courses[0].id).to.eql(pm.collectionVariables.get(\"courseId\")); });",
+                      "pm.test(\"With counts\", () => { pm.expect(courses[0].students_count).to.eql(1); pm.expect(courses[0].lessons_count).to.eql(1); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "My course with its sections",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/mentor/courses/{{courseId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"One section\", () => pm.expect(pm.response.json().course.sections.length).to.eql(1));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Someone else's course → 403",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/mentor/courses/{{otherCourseId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 403\", () => pm.response.to.have.status(403));",
+                      "pm.test(\"Error message\", () => pm.expect(pm.response.json().error).to.eql(\"This course is not yours\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Add a section to my course",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/mentor/courses/{{courseId}}/sections",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Week 2 (by the mentor)\",\n  \"position\": 2\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set(\"mentorSectionId\", pm.response.json().section.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Add a section to someone else's course → 403",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/mentor/courses/{{otherCourseId}}/sections"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 403\", () => pm.response.to.have.status(403));",
+                      "pm.test(\"Error message\", () => pm.expect(pm.response.json().error).to.eql(\"This course is not yours\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Add a lesson to my section",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/mentor/sections/{{mentorSectionId}}/lessons",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Forms\",\n  \"description\": \"Inputs and buttons\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Open my exam (with answers)",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/mentor/exams/{{examId}}",
+                "description": "The guard walks up exam → lesson → section → course and finds the mentor's course."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"Sees the correct answers\", () => pm.expect(pm.response.json().exam.questions[0]).to.have.property(\"correct_answer\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Edit my exercise",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/mentor/exercises/{{exerciseId}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Homework: build a landing page (updated by the mentor)\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Students of my course",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/mentor/courses/{{courseId}}/students"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"One student at 0%\", () => { const { students } = pm.response.json(); pm.expect(students.length).to.eql(1); pm.expect(students[0].progress_percent).to.eql(0); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Students of someone else's course → 403",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/mentor/courses/{{otherCourseId}}/students"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 403\", () => pm.response.to.have.status(403));",
+                      "pm.test(\"Error message\", () => pm.expect(pm.response.json().error).to.eql(\"This course is not yours\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Mentor opens the admin panel → 403",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/stats"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 403\", () => pm.response.to.have.status(403));",
+                      "pm.test(\"Error message\", () => pm.expect(pm.response.json().error).to.eql(\"Insufficient permissions\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Mentor opens the student side → 403",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/student/courses"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 403\", () => pm.response.to.have.status(403));",
+                      "pm.test(\"Error message\", () => pm.expect(pm.response.json().error).to.eql(\"Insufficient permissions\"));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "3. Student",
+          "description": "The student's side (/api/v1/student): only enrolled courses; marks lessons as done and takes exams.",
+          "item": [
+            {
+              "name": "Log in as the student",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/auth/login",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"{{studentPhone}}\",\n  \"password\": \"{{studentPassword}}\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"Logged in as student\", () => pm.expect(pm.response.json().user.role).to.eql(\"student\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "My courses",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/student/courses"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "const { courses } = pm.response.json();",
+                      "pm.test(\"The enrolled course at 0% (2 lessons: admin's + mentor's)\", () => {",
+                      "  pm.expect(courses.length).to.eql(1);",
+                      "  pm.expect(courses[0].lessons_total).to.eql(2);",
+                      "  pm.expect(courses[0].progress_percent).to.eql(0);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "My course: sections and lessons",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/student/courses/{{courseId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "const { course } = pm.response.json();",
+                      "pm.test(\"Two sections, nothing done yet\", () => {",
+                      "  pm.expect(course.sections.length).to.eql(2);",
+                      "  pm.expect(course.sections[0].lessons[0].completed).to.be.false;",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "A course I'm not enrolled in → 403",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/student/courses/{{otherCourseId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 403\", () => pm.response.to.have.status(403));",
+                      "pm.test(\"Error message\", () => pm.expect(pm.response.json().error).to.eql(\"You are not enrolled in this course\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Open the lesson",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/student/lessons/{{lessonId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "const { lesson } = pm.response.json();",
+                      "pm.test(\"Video, material, exercise and exam\", () => {",
+                      "  pm.expect(lesson.video_url).to.be.a(\"string\");",
+                      "  pm.expect(lesson.materials.length).to.eql(1);",
+                      "  pm.expect(lesson.exercises.length).to.eql(1);",
+                      "  pm.expect(lesson.exams.length).to.eql(1);",
+                      "  pm.expect(lesson.completed).to.be.false;",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Mark the lesson as done",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/student/lessons/{{lessonId}}/complete"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"Completed\", () => pm.expect(pm.response.json().completed).to.be.true);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Mark it again (still one record)",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/student/lessons/{{lessonId}}/complete",
+                "description": "ON CONFLICT DO NOTHING: no error, no duplicate."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"Still completed\", () => pm.expect(pm.response.json().completed).to.be.true);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Progress is now 50%",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/student/courses"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"1 of 2 lessons\", () => { const c = pm.response.json().courses[0]; pm.expect(c.lessons_done).to.eql(1); pm.expect(c.progress_percent).to.eql(50); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Open the exam (no answers)",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/student/exams/{{examId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "const { exam } = pm.response.json();",
+                      "pm.test(\"Two questions without the correct answer\", () => {",
+                      "  pm.expect(exam.questions.length).to.eql(2);",
+                      "  exam.questions.forEach((q) => pm.expect(q).to.not.have.property(\"correct_answer\"));",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Submit: all correct → 100%, passed",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/student/exams/{{examId}}/attempts",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"answers\": [\n    {\n      \"question_id\": {{q1Id}},\n      \"answer\": \"b\"\n    },\n    {\n      \"question_id\": {{q2Id}},\n      \"answer\": \"d\"\n    }\n  ]\n}"
+                },
+                "description": "The server counts the score with the answers from the database."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                      "pm.test(\"2 of 2, passed\", () => { const { attempt } = pm.response.json(); pm.expect(attempt.correct_count).to.eql(2); pm.expect(attempt.score_percent).to.eql(100); pm.expect(attempt.passed).to.be.true; });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Submit: one right, one wrong → 50%, passed (pass mark 50)",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/student/exams/{{examId}}/attempts",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"answers\": [\n    {\n      \"question_id\": {{q1Id}},\n      \"answer\": \"b\"\n    },\n    {\n      \"question_id\": {{q2Id}},\n      \"answer\": \"a\"\n    }\n  ]\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                      "pm.test(\"1 of 2\", () => { const { attempt } = pm.response.json(); pm.expect(attempt.score_percent).to.eql(50); pm.expect(attempt.passed).to.be.true; });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Submit: nothing answered → 0%, failed",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/student/exams/{{examId}}/attempts",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"answers\": []\n}"
+                },
+                "description": "An unanswered question counts as wrong."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                      "pm.test(\"0 of 2, failed\", () => { const { attempt } = pm.response.json(); pm.expect(attempt.wrong_count).to.eql(2); pm.expect(attempt.passed).to.be.false; });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Submit with an answer e → 400",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/student/exams/{{examId}}/attempts",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"answers\": [\n    {\n      \"question_id\": {{q1Id}},\n      \"answer\": \"e\"\n    }\n  ]\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                      "pm.test(\"Explains the answers field\", () => {",
+                      "  const body = pm.response.json();",
+                      "  pm.expect(body.error).to.eql(\"Invalid request\");",
+                      "  pm.expect(body.details).to.have.property(\"answers\");",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "My results",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/student/results"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"Three attempts, newest first\", () => { const { results } = pm.response.json(); pm.expect(results.length).to.eql(3); pm.expect(results[0].score_percent).to.eql(0); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Undo: lesson not done",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/student/lessons/{{lessonId}}/complete"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"Not completed\", () => pm.expect(pm.response.json().completed).to.be.false);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Student opens the admin panel → 403",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/users"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 403\", () => pm.response.to.have.status(403));",
+                      "pm.test(\"Error message\", () => pm.expect(pm.response.json().error).to.eql(\"Insufficient permissions\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Student opens the mentor panel → 403",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/mentor/courses"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 403\", () => pm.response.to.have.status(403));",
+                      "pm.test(\"Error message\", () => pm.expect(pm.response.json().error).to.eql(\"Insufficient permissions\"));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "4. Mentor sees the results",
+          "item": [
+            {
+              "name": "Log in as the mentor again",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/auth/login",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"{{mentorPhone}}\",\n  \"password\": \"{{mentorPassword}}\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"Logged in as mentor\", () => pm.expect(pm.response.json().user.role).to.eql(\"mentor\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Results of my course",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/mentor/courses/{{courseId}}/results"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "const { results } = pm.response.json();",
+                      "pm.test(\"The student's three attempts\", () => {",
+                      "  pm.expect(results.length).to.eql(3);",
+                      "  pm.expect(results.map((r) => r.score_percent)).to.eql([0, 50, 100]);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "5. Cleanup (admin)",
+          "item": [
+            {
+              "name": "Log in as admin again",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/auth/login",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"{{adminPhone}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Results as admin",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/courses/{{courseId}}/results"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"Three\", () => pm.expect(pm.response.json().results.length).to.eql(3));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Unenroll the student",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/admin/courses/{{courseId}}/students/{{studentId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 204\", () => pm.response.to.have.status(204));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Unenroll again → 404",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/admin/courses/{{courseId}}/students/{{studentId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Unlink the mentor",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/admin/courses/{{courseId}}/mentors/{{mentorId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 204\", () => pm.response.to.have.status(204));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Delete question 1",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/admin/questions/{{q1Id}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 204\", () => pm.response.to.have.status(204));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Delete the exercise",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/admin/exercises/{{exerciseId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 204\", () => pm.response.to.have.status(204));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Delete the exam (with its attempts)",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/admin/exams/{{examId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 204\", () => pm.response.to.have.status(204));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Delete the mentor's course (and all its content)",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/admin/courses/{{courseId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 204\", () => pm.response.to.have.status(204));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Delete the other course",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/admin/courses/{{otherCourseId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 204\", () => pm.response.to.have.status(204));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Delete the level",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/admin/levels/{{levelId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 204\", () => pm.response.to.have.status(204));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Delete the category",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/admin/categories/{{categoryId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 204\", () => pm.response.to.have.status(204));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Delete the mentor",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/admin/users/{{mentorId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 204\", () => pm.response.to.have.status(204));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Delete the student",
+              "request": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/v1/admin/users/{{studentId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 204\", () => pm.response.to.have.status(204));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "variable": [
@@ -2303,6 +4169,42 @@
     },
     {
       "key": "materialId",
+      "value": ""
+    },
+    {
+      "key": "mentorPhone",
+      "value": ""
+    },
+    {
+      "key": "mentorPassword",
+      "value": ""
+    },
+    {
+      "key": "mentorId",
+      "value": ""
+    },
+    {
+      "key": "otherCourseId",
+      "value": ""
+    },
+    {
+      "key": "exerciseId",
+      "value": ""
+    },
+    {
+      "key": "examId",
+      "value": ""
+    },
+    {
+      "key": "q1Id",
+      "value": ""
+    },
+    {
+      "key": "q2Id",
+      "value": ""
+    },
+    {
+      "key": "mentorSectionId",
       "value": ""
     }
   ]

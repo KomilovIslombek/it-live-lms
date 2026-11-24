@@ -32,6 +32,7 @@ CREATE TRIGGER categories_set_updated_at BEFORE UPDATE ON "categories" FOR EACH 
 CREATE TRIGGER levels_set_updated_at BEFORE UPDATE ON "levels" FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER courses_set_updated_at BEFORE UPDATE ON "courses" FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER user_courses_set_updated_at BEFORE UPDATE ON "user_courses" FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER course_mentors_set_updated_at BEFORE UPDATE ON "course_mentors" FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER payment_methods_set_updated_at BEFORE UPDATE ON "payment_methods" FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER payments_set_updated_at BEFORE UPDATE ON "payments" FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 

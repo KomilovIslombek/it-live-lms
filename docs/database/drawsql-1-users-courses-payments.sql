@@ -1,5 +1,5 @@
 -- IT Live LMS: database diagram, part 1 of 2 (users, courses, payments)
--- 8 tables. Import into drawsql.app as PostgreSQL.
+-- 9 tables. Import into drawsql.app as PostgreSQL.
 -- Part 2 (course content and learning) is in drawsql-2-course-content.sql.
 
 CREATE TABLE "roles"(
@@ -111,6 +111,19 @@ COMMENT
 ON COLUMN
     "user_courses"."created_at" IS 'Enrollment date. A student can enroll in a course only once (online only)';
 
+CREATE TABLE "course_mentors"(
+    "id" SERIAL PRIMARY KEY,
+    "course_id" INTEGER NOT NULL,
+    "user_id" INTEGER NOT NULL,
+    "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+ALTER TABLE
+    "course_mentors" ADD CONSTRAINT "course_mentors_course_id_user_id_unique" UNIQUE("course_id", "user_id");
+COMMENT
+ON TABLE
+    "course_mentors" IS 'Which mentors teach which course. A table, not a column, so a course can have one or several mentors';
+
 CREATE TABLE "payment_methods"(
     "id" SERIAL PRIMARY KEY,
     "name" VARCHAR(255) NOT NULL,
@@ -165,7 +178,7 @@ ON COLUMN
     "payments"."paid_at" IS 'Empty while pending or failed';
 
 -- Deleting a role, category or level that is still in use is blocked (RESTRICT).
--- Enrollments disappear with their user or course (CASCADE).
+-- Enrollments and mentor links disappear with their user or course (CASCADE).
 -- Payments are financial records: a user or course with payments cannot be
 -- deleted (RESTRICT). Deactivate it with status = false instead.
 ALTER TABLE
@@ -178,6 +191,10 @@ ALTER TABLE
     "user_courses" ADD CONSTRAINT "user_courses_user_id_foreign" FOREIGN KEY("user_id") REFERENCES "users"("id") ON DELETE CASCADE;
 ALTER TABLE
     "user_courses" ADD CONSTRAINT "user_courses_course_id_foreign" FOREIGN KEY("course_id") REFERENCES "courses"("id") ON DELETE CASCADE;
+ALTER TABLE
+    "course_mentors" ADD CONSTRAINT "course_mentors_course_id_foreign" FOREIGN KEY("course_id") REFERENCES "courses"("id") ON DELETE CASCADE;
+ALTER TABLE
+    "course_mentors" ADD CONSTRAINT "course_mentors_user_id_foreign" FOREIGN KEY("user_id") REFERENCES "users"("id") ON DELETE CASCADE;
 ALTER TABLE
     "payments" ADD CONSTRAINT "payments_user_id_foreign" FOREIGN KEY("user_id") REFERENCES "users"("id") ON DELETE RESTRICT;
 ALTER TABLE
