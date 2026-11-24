@@ -111,6 +111,21 @@ a scratch copy: **85 requests, 167 assertions, 0 failed, run twice, no
   **Cloud copy still not synced**: the user re-imports the file.
 - **Docs:** README API (exercises, exams, members, mentor, student),
   `docs/how-it-works.md` §5.5 and §11 step 4б.
+- **File uploads (2026-11-24, user: "при публикации видео, фото, файлов
+  должно быть form-data"):** multer 2.5.0 (published 2026-10-22, 0 audit
+  issues). Course `banner` (required) + `intro_video`, lesson `video`,
+  material/exercise `files` (up to 20), user `profile_img`; type checked by
+  extension and MIME, size limits 500/500/50/5 MB; failed requests delete
+  their files; replaced and deleted items' files are removed from disk.
+  The schemas no longer take file fields as strings. Postman: all
+  file-carrying requests are form-data now, plus new checks (download the
+  banner, no banner, .exe, video as banner, replace banner → old file 404,
+  profile photo). Whole collection on a scratch copy: **166 requests, 306
+  assertions, 0 failed, twice, uploads folder empty afterwards**; by hand
+  a 6 MB photo → 400 "File too large".
+- **Comments removed from all server code** (user asked, 2026-11-24).
+- The user said "уберу лишний API" then "оставь, не укорачивай": the
+  collection keeps every request.
 - **Not done:** homework submissions and grading (no table yet),
   payments (user: not now), assistants, certificates, the frontend.
 

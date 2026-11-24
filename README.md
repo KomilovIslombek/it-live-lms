@@ -37,12 +37,13 @@ server/                  Express API
   src/services/          SQL queries
   src/schemas/           request validation (zod)
   src/middleware/        auth check, JSON errors
-  src/utils/             JWT helpers, error logger
+  src/utils/             JWT, error logger, file uploads (multer), SQL helpers
   src/scripts/seed.ts    roles and the first admin
   logs/error.log         server errors (created on the first error, not in git)
+  uploads/               uploaded files, served at /uploads (not in git)
 docs/database/           database schema (source of truth)
 docs/how-it-works.md     how the project works, in Russian
-postman/                 Postman collection and environment
+postman/                 Postman collection, environment, fixtures/ (test files)
 docker-compose.yml       PostgreSQL for local development
 ```
 
@@ -84,14 +85,14 @@ with the `admin` role: 401 without a cookie, 403 for other roles.
 
 **Dashboard and users**
 
-| Method | Path         | Description                                                                                                                          |
-| ------ | ------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| GET    | `/stats`     | Counts for the dashboard cards: users (total, active, per role), courses, categories, enrollments, payments and revenue              |
-| GET    | `/users`     | `?role=student&search=&status=true&page=1&limit=10` (search by name or phone), returns `{ users, page, limit, total }`               |
-| GET    | `/users/:id` | Full profile (mentor fields, `courses_count`), never the password hash                                                               |
-| POST   | `/users`     | `full_name`, `phone`, `password` (8+), `role`, optional `email`, `status` and mentor fields. 201; 409 if the phone or email is taken |
-| PATCH  | `/users/:id` | Any of the same fields; a new password is hashed. `{ "status": false }` deactivates. An admin can't deactivate or demote themselves  |
-| DELETE | `/users/:id` | 204; 409 if the user has payments (deactivate instead); an admin can't delete themselves                                             |
+| Method | Path         | Description                                                                                                                                                |
+| ------ | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/stats`     | Counts for the dashboard cards: users (total, active, per role), courses, categories, enrollments, payments and revenue                                    |
+| GET    | `/users`     | `?role=student&search=&status=true&page=1&limit=10` (search by name or phone), returns `{ users, page, limit, total }`                                     |
+| GET    | `/users/:id` | Full profile (mentor fields, `courses_count`), never the password hash                                                                                     |
+| POST   | `/users`     | `full_name`, `phone`, `password` (8+), `role`, optional `email`, `status`, mentor fields and a `profile_img` file. 201; 409 if the phone or email is taken |
+| PATCH  | `/users/:id` | Any of the same fields; a new password is hashed. `{ "status": false }` deactivates. An admin can't deactivate or demote themselves                        |
+| DELETE | `/users/:id` | 204; 409 if the user has payments (deactivate instead); an admin can't delete themselves                                                                   |
 
 **Catalog.** `categories`, `levels` and `courses` each have the same five
 routes: `GET /<name>`, `GET /<name>/:id`, `POST /<name>`,
@@ -115,11 +116,11 @@ create go under the parent, everything else uses the item's own id:
 | ------------------ | ------------------------------ | -------------------------------------------------------------------- |
 | GET, POST          | `/courses/:courseId/sections`  | Sections of a course, ordered by `position`; 404 if no course        |
 | GET, PATCH, DELETE | `/sections/:id`                | One section (GET includes its lessons)                               |
-| GET, POST          | `/sections/:sectionId/lessons` | Lessons of a section (`title`, `description`, `video_url`)           |
+| GET, POST          | `/sections/:sectionId/lessons` | Lessons of a section: `title`, `description`, file `video`           |
 | GET, PATCH, DELETE | `/lessons/:id`                 | One lesson (GET includes its materials and their files)              |
-| GET, POST          | `/lessons/:lessonId/materials` | Materials of a lesson, each with `files: [{ file_name, file_path }]` |
-| GET, PATCH, DELETE | `/materials/:id`               | One material; `files` in a PATCH replaces the whole list             |
-| GET, POST          | `/lessons/:lessonId/exercises` | Homework tasks of a lesson (`title` + `files`), like materials       |
+| GET, POST          | `/lessons/:lessonId/materials` | Materials of a lesson: `description`, files under `files` (up to 20) |
+| GET, PATCH, DELETE | `/materials/:id`               | One material; new `files` in a PATCH replace the old ones            |
+| GET, POST          | `/lessons/:lessonId/exercises` | Homework tasks of a lesson: `title`, files under `files`             |
 | GET, PATCH, DELETE | `/exercises/:id`               | One exercise                                                         |
 | GET, POST          | `/lessons/:lessonId/exams`     | Exams of a lesson (`title`, `pass_percent`, default 60)              |
 | GET, PATCH, DELETE | `/exams/:id`                   | One exam (GET includes its questions with the correct answers)       |
@@ -129,8 +130,26 @@ create go under the parent, everything else uses the item's own id:
 | GET                | `/courses/:courseId/results`   | Every exam attempt in the course, newest first                       |
 
 A material and its files are saved in one transaction (all or nothing).
-Deleting a course, section or lesson deletes everything inside it. Files
-are links for now; real uploads come later.
+Deleting a course, section or lesson deletes everything inside it.
+
+**File uploads.** Requests that carry files are `multipart/form-data`
+(Postman: Body → form-data), with the text fields next to the files:
+
+| Where              | Key           | Accepted                                                       | Max    |
+| ------------------ | ------------- | -------------------------------------------------------------- | ------ |
+| Course             | `banner`      | image: jpg, png, webp, gif (required on create)                | 500 MB |
+| Course             | `intro_video` | video: mp4, webm, mov                                          | 500 MB |
+| Lesson             | `video`       | video: mp4, webm, mov                                          | 500 MB |
+| Material, exercise | `files`       | pdf, zip, rar, doc(x), ppt(x), xls(x), txt, png, jpg; up to 20 | 50 MB  |
+| User               | `profile_img` | image: jpg, png, webp, gif                                     | 5 MB   |
+
+The server saves them in `server/uploads/` (not in git) with random names
+and stores the path, e.g. `/uploads/banners/<uuid>.png`, which it also
+serves. A wrong type or size answers 400 for that field. The files of a
+request that fails are deleted, and so are replaced files and the files of
+deleted courses, sections, lessons, materials, exercises and users.
+Numbers and `true`/`false` are accepted as text, the way form-data sends
+them.
 
 **Course members** (admin only). Payments aren't built yet, so the admin
 links mentors and enrolls students by hand:
@@ -178,17 +197,21 @@ The `postman/` folder has a collection with every request and a test on
 each one (status codes, response shape, no password hash, the cookie,
 the error cases).
 
-1. In the Postman app: **Import** → select both files in `postman/`.
-2. Select the **IT Live LMS (local)** environment and fill in
+1. In the Postman app: **Import** → select both files in `postman/`
+   (choose **Replace** if it says the collection already exists).
+2. **Settings → General → Working directory**: choose this repo's
+   `postman/` folder. The upload requests take their test files from
+   `postman/fixtures/`.
+3. Select the **IT Live LMS (local)** environment and fill in
    `adminPhone` and `adminPassword` (`SEED_ADMIN_PHONE` and `SEED_ADMIN_PASSWORD` from `server/.env`).
-3. With the database and server running, open the collection and click
+4. With the database and server running, open the collection and click
    **Run**.
 
 Or from the terminal with the [Postman CLI](https://learning.postman.com/docs/postman-cli/postman-cli-overview/):
 
 ```bash
 postman collection run postman/it-live-lms.postman_collection.json \
-  -e postman/local.postman_environment.json \
+  -e postman/local.postman_environment.json --working-dir postman \
   --env-var "adminPhone=+998901234567" --env-var "adminPassword=..."
 ```
 
@@ -221,7 +244,9 @@ changes from `docs/database/migrations/` (each file says how to run it):
 - [x] Admin: users (list, search, create, edit, activate/deactivate, delete) and dashboard stats
 - [x] Admin: categories, levels and courses (CRUD with search, filters and
       pagination)
-- [x] Admin: sections, lessons, materials (files as links for now)
+- [x] Admin: sections, lessons, materials
+- [x] File uploads (form-data): course banner and intro video, lesson
+      video, material and exercise files, profile photo
 - [x] Student API: my courses with progress, lessons, marking lessons done, exams scored on the server, my results
 - [x] Mentor API: my courses, the same content tools limited to them, students with progress, exam results
 - [x] Admin: exercises, exams and questions; linking mentors and enrolling students

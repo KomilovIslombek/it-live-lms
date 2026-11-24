@@ -6,9 +6,6 @@ import { parseId, sendFieldError, sendValidationError } from "../utils/http.js";
 import { UNIQUE_VIOLATION, pgError } from "../utils/pg-errors.js";
 import { rowExists } from "../utils/sql.js";
 
-// Mentors and students of a course, and the course's exam results.
-
-// Reads :courseId and answers 400 / 404 itself. Returns the id or null.
 async function courseFromUrl(req: Request, res: Response) {
   const courseId = parseId(req.params.courseId);
   if (courseId === null) {
@@ -22,14 +19,12 @@ async function courseFromUrl(req: Request, res: Response) {
   return courseId;
 }
 
-// GET /courses/:courseId/mentors
 export async function listCourseMentors(req: Request, res: Response) {
   const courseId = await courseFromUrl(req, res);
   if (courseId === null) return;
   return res.status(200).json({ mentors: await members.findMentors(courseId) });
 }
 
-// GET /courses/:courseId/students (with each student's progress)
 export async function listCourseStudents(req: Request, res: Response) {
   const courseId = await courseFromUrl(req, res);
   if (courseId === null) return;
@@ -38,7 +33,6 @@ export async function listCourseStudents(req: Request, res: Response) {
     .json({ students: await members.findStudents(courseId) });
 }
 
-// GET /courses/:courseId/results (exam attempts in this course)
 export async function listCourseResults(req: Request, res: Response) {
   const courseId = await courseFromUrl(req, res);
   if (courseId === null) return;
@@ -47,8 +41,6 @@ export async function listCourseResults(req: Request, res: Response) {
     .json({ results: await results.findByCourse(courseId) });
 }
 
-// POST /courses/:courseId/mentors  and  POST /courses/:courseId/students
-// { "user_id": 5 }. The user must have the right role.
 function addMemberHandler(role: "mentor" | "student") {
   const add = role === "mentor" ? members.addMentor : members.enrollStudent;
   const list = role === "mentor" ? members.findMentors : members.findStudents;
@@ -83,7 +75,6 @@ function addMemberHandler(role: "mentor" | "student") {
 export const addCourseMentor = addMemberHandler("mentor");
 export const enrollCourseStudent = addMemberHandler("student");
 
-// DELETE /courses/:courseId/mentors/:userId  and  .../students/:userId
 function removeMemberHandler(role: "mentor" | "student") {
   const remove =
     role === "mentor" ? members.removeMentor : members.unenrollStudent;

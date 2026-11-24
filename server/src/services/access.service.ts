@@ -1,7 +1,5 @@
 import pool from "../db.js";
 
-// Every piece of content belongs to exactly one course:
-// course ← section ← lesson ← material / exercise / exam ← question.
 export type ContentKind =
   | "course"
   | "section"
@@ -11,8 +9,6 @@ export type ContentKind =
   | "exam"
   | "question";
 
-// For each kind: the SQL that walks up the tree to the course id.
-// Fixed strings chosen by `kind`, never text from the request.
 const COURSE_ID_OF: Record<ContentKind, string> = {
   course: "SELECT id AS course_id FROM courses WHERE id = $1",
   section: "SELECT course_id FROM sections WHERE id = $1",
@@ -33,8 +29,6 @@ const COURSE_ID_OF: Record<ContentKind, string> = {
     JOIN sections s ON s.id = l.section_id WHERE q.id = $1`,
 };
 
-// The course that a section / lesson / exam... belongs to, or null when
-// the item doesn't exist.
 export async function courseIdOf(kind: ContentKind, id: number) {
   const { rows } = await pool.query<{ course_id: number }>(COURSE_ID_OF[kind], [
     id,
@@ -50,7 +44,6 @@ export async function isCourseMentor(userId: number, courseId: number) {
   return rowCount === 1;
 }
 
-// Enrolled, and the course is switched on (status = true).
 export async function isEnrolled(userId: number, courseId: number) {
   const { rowCount } = await pool.query(
     `SELECT 1 FROM user_courses uc

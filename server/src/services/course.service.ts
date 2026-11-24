@@ -6,8 +6,6 @@ import type {
   UpdateCourseInput,
 } from "../schemas/course.schema.js";
 
-// price is NUMERIC in the database, and node-postgres returns NUMERIC as a
-// string ("1200000.00") so no precision is lost. We keep it a string.
 export interface CourseListItem {
   id: number;
   title: string;
@@ -28,10 +26,6 @@ export interface Course extends CourseListItem {
   updated_at: Date;
 }
 
-// The same WHERE for the page of courses and for the total count.
-// "$1::text IS NULL OR ..." makes a filter optional: when the admin didn't
-// send it we pass null, the left side is true, and the filter is skipped.
-// The ::text / ::int casts tell PostgreSQL the type of a null parameter.
 const LIST_WHERE = `
   WHERE ($1::text IS NULL OR c.title ILIKE $1)
     AND ($2::int IS NULL OR c.category_id = $2)
@@ -40,7 +34,6 @@ const LIST_WHERE = `
 
 export async function findPage(query: ListCoursesQuery) {
   const { search, category_id, level_id, status, page, limit } = query;
-  // ILIKE = LIKE without caring about upper/lower case; % = anything.
   const filters = [
     search ? `%${search}%` : null,
     category_id ?? null,
@@ -49,7 +42,6 @@ export async function findPage(query: ListCoursesQuery) {
   ];
   const offset = (page - 1) * limit;
 
-  // Two independent queries, so run them at the same time.
   const [pageResult, countResult] = await Promise.all([
     pool.query<CourseListItem>(
       `SELECT c.id, c.title, c.price, c.banner, c.status,
@@ -93,7 +85,6 @@ export async function findById(id: number) {
   return rows[0] ?? null;
 }
 
-// Throws FOREIGN_KEY_VIOLATION when category_id or level_id doesn't exist.
 export async function insert(course: CreateCourseInput) {
   const { rows } = await pool.query<{ id: number }>(
     `INSERT INTO courses
@@ -116,7 +107,6 @@ export async function insert(course: CreateCourseInput) {
   return findById(id);
 }
 
-// Returns null when there is no course with this id.
 export async function update(id: number, changes: UpdateCourseInput) {
   const { set, values } = buildSet(changes);
   const { rows } = await pool.query<{ id: number }>(
@@ -127,9 +117,6 @@ export async function update(id: number, changes: UpdateCourseInput) {
   return findById(id);
 }
 
-// Deleting a course also deletes its enrollments and its whole content tree
-// (sections → lessons → materials...: ON DELETE CASCADE). It throws
-// RESTRICT_VIOLATION when the course has payments (ON DELETE RESTRICT).
 export async function remove(id: number) {
   const { rowCount } = await pool.query("DELETE FROM courses WHERE id = $1", [
     id,

@@ -7,7 +7,6 @@ import {
   updateLevel,
 } from "../controllers/level.controller.js";
 
-// Mounted inside the admin router at /levels (admin only).
 const router = Router();
 
 router.get("/", listLevels);

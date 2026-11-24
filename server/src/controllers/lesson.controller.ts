@@ -7,10 +7,12 @@ import {
 import { parseId, sendValidationError } from "../utils/http.js";
 import { FOREIGN_KEY_VIOLATION, pgError } from "../utils/pg-errors.js";
 import { rowExists } from "../utils/sql.js";
+import { deleteStoredFile, uploadedPath } from "../utils/upload.js";
+import {
+  deleteStoredFiles,
+  storedFilesOf,
+} from "../services/stored-files.service.js";
 
-// Same structure as section.controller.ts.
-
-// GET /admin/sections/:sectionId/lessons
 export async function listLessons(req: Request, res: Response) {
   const sectionId = parseId(req.params.sectionId);
   if (sectionId === null) return res.status(400).json({ error: "Invalid id" });
@@ -23,7 +25,6 @@ export async function listLessons(req: Request, res: Response) {
     .json({ lessons: await lessons.findBySection(sectionId) });
 }
 
-// GET /admin/lessons/:id (with its materials and files)
 export async function getLesson(req: Request, res: Response) {
   const id = parseId(req.params.id);
   if (id === null) return res.status(400).json({ error: "Invalid id" });
@@ -33,7 +34,6 @@ export async function getLesson(req: Request, res: Response) {
   return res.status(200).json({ lesson });
 }
 
-// POST /admin/sections/:sectionId/lessons
 export async function createLesson(req: Request, res: Response) {
   const sectionId = parseId(req.params.sectionId);
   if (sectionId === null) return res.status(400).json({ error: "Invalid id" });
@@ -42,7 +42,10 @@ export async function createLesson(req: Request, res: Response) {
   if (!parsed.success) return sendValidationError(res, parsed.error);
 
   try {
-    const lesson = await lessons.insert(sectionId, parsed.data);
+    const lesson = await lessons.insert(sectionId, {
+      ...parsed.data,
+      video_url: uploadedPath(req, "video") ?? null,
+    });
     return res.status(201).json({ lesson });
   } catch (err) {
     if (pgError(err).code === FOREIGN_KEY_VIOLATION) {
@@ -52,28 +55,32 @@ export async function createLesson(req: Request, res: Response) {
   }
 }
 
-// PATCH /admin/lessons/:id
 export async function updateLesson(req: Request, res: Response) {
   const id = parseId(req.params.id);
   if (id === null) return res.status(400).json({ error: "Invalid id" });
 
   const parsed = updateLessonSchema.safeParse(req.body);
   if (!parsed.success) return sendValidationError(res, parsed.error);
-  if (Object.keys(parsed.data).length === 0) {
+  const video = uploadedPath(req, "video");
+  const changes = { ...parsed.data, ...(video ? { video_url: video } : {}) };
+  if (Object.keys(changes).length === 0) {
     return res.status(400).json({ error: "Nothing to update" });
   }
 
-  const lesson = await lessons.update(id, parsed.data);
+  const before = video ? await lessons.findById(id) : null;
+  const lesson = await lessons.update(id, changes);
   if (!lesson) return res.status(404).json({ error: "Lesson not found" });
+  if (video) await deleteStoredFile(before?.video_url);
   return res.status(200).json({ lesson });
 }
 
-// DELETE /admin/lessons/:id
 export async function deleteLesson(req: Request, res: Response) {
   const id = parseId(req.params.id);
   if (id === null) return res.status(400).json({ error: "Invalid id" });
 
+  const files = await storedFilesOf("lesson", id);
   const deleted = await lessons.remove(id);
   if (!deleted) return res.status(404).json({ error: "Lesson not found" });
+  await deleteStoredFiles(files);
   return res.status(204).end();
 }

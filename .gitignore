@@ -4,6 +4,8 @@ dist/
 cookies.txt
 # Error log written by the server (server/logs/error.log)
 logs/
+# Files uploaded through the API (server/uploads)
+uploads/
 # Files the Postman app writes when it links this folder as a local workspace
 postman/postman/
 postman/.postman/

@@ -6,6 +6,7 @@ import mentorRoutes from "./routes/mentor.routes.js";
 import studentRoutes from "./routes/student.routes.js";
 import cookieParser from "cookie-parser";
 import { errorHandler, notFound } from "./middleware/error.middleware.js";
+import { UPLOAD_DIR } from "./utils/upload.js";
 const app = express();
 
 app.use(express.json());
@@ -20,6 +21,15 @@ app.get("/api/health", async (_req, res) => {
     return res.status(503).json({ status: "ok", database: "unreachable" });
   }
 });
+
+app.use(
+  "/uploads",
+  express.static(UPLOAD_DIR, {
+    index: false,
+    dotfiles: "deny",
+    setHeaders: (res) => res.setHeader("X-Content-Type-Options", "nosniff"),
+  }),
+);
 
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/admin", adminRoutes);

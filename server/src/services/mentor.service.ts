@@ -1,7 +1,5 @@
 import pool from "../db.js";
 
-// The mentor's panel: a smaller admin, limited to their own courses.
-
 export interface MentorCourse {
   id: number;
   title: string;
@@ -14,7 +12,6 @@ export interface MentorCourse {
   students_count: number;
 }
 
-// The courses this mentor is linked to (course_mentors).
 export async function findMyCourses(mentorId: number) {
   const { rows } = await pool.query<MentorCourse>(
     `SELECT c.id, c.title, c.banner, c.status,

@@ -1,9 +1,5 @@
 import pool from "../db.js";
 
-// Who is in a course: mentors (course_mentors) and students
-// (user_courses, "enrollment"). Payments are not used yet, so the admin
-// enrolls students by hand.
-
 export interface CourseMentor {
   user_id: number;
   full_name: string;
@@ -35,8 +31,6 @@ export async function findMentors(courseId: number) {
   return rows;
 }
 
-// Each student with their progress in this course: lessons they marked as
-// done out of all lessons of the course.
 export async function findStudents(courseId: number) {
   const { rows } = await pool.query<Omit<CourseStudent, "progress_percent">>(
     `SELECT u.id AS user_id, u.full_name, u.phone, u.status,
@@ -60,14 +54,10 @@ export async function findStudents(courseId: number) {
   }));
 }
 
-// 3 of 8 → 38. No lessons yet → 0 (not a division by zero).
 export function percent(part: number, whole: number) {
   return whole === 0 ? 0 : Math.round((part * 100) / whole);
 }
 
-// INSERT ... SELECT with a role check: the row is added only when the user
-// exists AND has the right role. No row back = not a mentor / student.
-// Throws UNIQUE_VIOLATION when the user is already in the course.
 async function addMember(
   table: "course_mentors" | "user_courses",
   role: "mentor" | "student",
@@ -98,8 +88,6 @@ export async function removeMentor(courseId: number, userId: number) {
   return rowCount === 1;
 }
 
-// The student's progress and exam attempts stay in the database: if they
-// are enrolled again later, nothing is lost.
 export async function unenrollStudent(courseId: number, userId: number) {
   const { rowCount } = await pool.query(
     "DELETE FROM user_courses WHERE course_id = $1 AND user_id = $2",

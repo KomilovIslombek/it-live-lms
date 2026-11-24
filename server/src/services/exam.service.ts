@@ -7,10 +7,6 @@ import type {
   UpdateQuestionInput,
 } from "../schemas/content.schema.js";
 
-// Exams of a lesson and their multiple-choice questions (a, b, c, d).
-// This file is for admins and mentors, so questions come WITH the
-// correct answer. Students get them without it (student.service.ts).
-
 export interface Exam {
   id: number;
   lesson_id: number;
@@ -64,7 +60,6 @@ export async function findQuestions(examId: number) {
   return rows;
 }
 
-// One exam with all its questions.
 export async function findById(id: number) {
   const [examResult, questions] = await Promise.all([
     pool.query<Exam>(`${SELECT_EXAM} WHERE e.id = $1`, [id]),
@@ -75,7 +70,6 @@ export async function findById(id: number) {
   return { ...exam, questions };
 }
 
-// Throws FOREIGN_KEY_VIOLATION when the lesson doesn't exist.
 export async function insert(lessonId: number, input: CreateExamInput) {
   const { rows } = await pool.query<{ id: number }>(
     `INSERT INTO exams (lesson_id, title, pass_percent)
@@ -97,15 +91,12 @@ export async function update(id: number, changes: UpdateExamInput) {
   return findById(id);
 }
 
-// Its questions and the students' attempts go with it (CASCADE).
 export async function remove(id: number) {
   const { rowCount } = await pool.query("DELETE FROM exams WHERE id = $1", [
     id,
   ]);
   return rowCount === 1;
 }
-
-// --- Questions ---
 
 export async function findQuestionById(id: number) {
   const { rows } = await pool.query<Question>(
@@ -115,7 +106,6 @@ export async function findQuestionById(id: number) {
   return rows[0] ?? null;
 }
 
-// Throws FOREIGN_KEY_VIOLATION when the exam doesn't exist.
 export async function insertQuestion(
   examId: number,
   input: CreateQuestionInput,

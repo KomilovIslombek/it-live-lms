@@ -12,16 +12,12 @@ import {
 } from "../utils/pg-errors.js";
 import { slugify } from "../utils/slug.js";
 
-// Same structure as category.controller.ts.
-
 const SLUG_TAKEN = "A level with this slug already exists";
 
-// GET /admin/levels
 export async function listLevels(_req: Request, res: Response) {
   return res.status(200).json({ levels: await levels.findAll() });
 }
 
-// GET /admin/levels/:id
 export async function getLevel(req: Request, res: Response) {
   const id = parseId(req.params.id);
   if (id === null) return res.status(400).json({ error: "Invalid id" });
@@ -32,7 +28,6 @@ export async function getLevel(req: Request, res: Response) {
   return res.status(200).json({ level });
 }
 
-// POST /admin/levels
 export async function createLevel(req: Request, res: Response) {
   const parsed = createLevelSchema.safeParse(req.body);
   if (!parsed.success) return sendValidationError(res, parsed.error);
@@ -58,7 +53,6 @@ export async function createLevel(req: Request, res: Response) {
   }
 }
 
-// PATCH /admin/levels/:id
 export async function updateLevel(req: Request, res: Response) {
   const id = parseId(req.params.id);
   if (id === null) return res.status(400).json({ error: "Invalid id" });
@@ -81,7 +75,6 @@ export async function updateLevel(req: Request, res: Response) {
   }
 }
 
-// DELETE /admin/levels/:id
 export async function deleteLevel(req: Request, res: Response) {
   const id = parseId(req.params.id);
   if (id === null) return res.status(400).json({ error: "Invalid id" });

@@ -7,10 +7,6 @@ import type {
   UpdateExerciseInput,
 } from "../schemas/content.schema.js";
 
-// Exercises (homework tasks) work exactly like materials: a row plus a
-// list of files, saved in one transaction. See material.service.ts for
-// the json_agg / FILTER / COALESCE explanation.
-
 interface ExerciseFile {
   id: number;
   file_name: string;
@@ -77,7 +73,6 @@ async function insertFiles(
   }
 }
 
-// Throws FOREIGN_KEY_VIOLATION when the lesson doesn't exist.
 export async function insert(lessonId: number, input: CreateExerciseInput) {
   const id = await withTransaction(async (client) => {
     const { rows } = await client.query<{ id: number }>(
@@ -93,7 +88,6 @@ export async function insert(lessonId: number, input: CreateExerciseInput) {
   return findById(id);
 }
 
-// `files`, when sent, replaces the whole list. null = no such exercise.
 export async function update(id: number, changes: UpdateExerciseInput) {
   const found = await withTransaction(async (client) => {
     const { rows } = await client.query<{ id: number }>(

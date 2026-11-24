@@ -4,10 +4,6 @@ import { findByLesson as findExercises } from "./exercise.service.js";
 import { percent } from "./enrollment.service.js";
 import type { SubmitAttemptInput } from "../schemas/content.schema.js";
 
-// The student's side: my courses, a course's lessons with my progress,
-// one lesson, exams and my results. The guard (studentEnrolled) has
-// already checked that the student is enrolled in the course.
-
 interface MyCourseRow {
   id: number;
   title: string;
@@ -20,7 +16,6 @@ interface MyCourseRow {
   lessons_total: number;
 }
 
-// Lessons in a course, and the ones this student has marked as done.
 const LESSONS_TOTAL = `(SELECT COUNT(*)::int FROM lessons ls
     JOIN sections s ON s.id = ls.section_id
     WHERE s.course_id = c.id)`;
@@ -29,7 +24,6 @@ const LESSONS_DONE = `(SELECT COUNT(*)::int FROM lesson_progress lp
     JOIN sections s ON s.id = ls.section_id
     WHERE s.course_id = c.id AND lp.user_id = $1)`;
 
-// GET /student/courses: enrolled, switched-on courses, newest first.
 export async function findMyCourses(userId: number) {
   const { rows } = await pool.query<MyCourseRow>(
     `SELECT c.id, c.title, c.description, c.banner,
@@ -58,8 +52,6 @@ interface LessonRow {
   completed: boolean;
 }
 
-// GET /student/courses/:id: the course, its sections, and in each section
-// its lessons with a `completed` flag for this student.
 export async function findMyCourse(courseId: number, userId: number) {
   const [courseResult, sectionsResult, lessonsResult] = await Promise.all([
     pool.query<MyCourseRow>(
@@ -78,7 +70,6 @@ export async function findMyCourse(courseId: number, userId: number) {
         WHERE course_id = $1 ORDER BY position, id`,
       [courseId],
     ),
-    // EXISTS(...) is true when a lesson_progress row is there.
     pool.query<LessonRow>(
       `SELECT ls.id, ls.section_id, ls.title, ls.video_url, ls.position,
           EXISTS (SELECT 1 FROM lesson_progress lp
@@ -94,7 +85,6 @@ export async function findMyCourse(courseId: number, userId: number) {
   const course = courseResult.rows[0];
   if (!course) return null;
 
-  // Put each lesson into its section (one query each, joined here in JS).
   const sections = sectionsResult.rows.map((section) => ({
     ...section,
     lessons: lessonsResult.rows.filter((l) => l.section_id === section.id),
@@ -107,8 +97,6 @@ export async function findMyCourse(courseId: number, userId: number) {
   };
 }
 
-// GET /student/lessons/:id: video, materials, exercises, exams (without
-// answers) and whether I finished it.
 export async function findMyLesson(lessonId: number, userId: number) {
   const lesson = await findLesson(lessonId);
   if (!lesson) return null;
@@ -147,8 +135,6 @@ export async function findMyLesson(lessonId: number, userId: number) {
   };
 }
 
-// POST /student/lessons/:id/complete. ON CONFLICT DO NOTHING: marking a
-// lesson twice is fine (the UNIQUE (user_id, lesson_id) keeps one row).
 export async function completeLesson(lessonId: number, userId: number) {
   await pool.query(
     `INSERT INTO lesson_progress (user_id, lesson_id) VALUES ($1, $2)
@@ -157,7 +143,6 @@ export async function completeLesson(lessonId: number, userId: number) {
   );
 }
 
-// DELETE /student/lessons/:id/complete: "not done yet" again.
 export async function uncompleteLesson(lessonId: number, userId: number) {
   await pool.query(
     "DELETE FROM lesson_progress WHERE lesson_id = $1 AND user_id = $2",
@@ -165,7 +150,6 @@ export async function uncompleteLesson(lessonId: number, userId: number) {
   );
 }
 
-// GET /student/exams/:id: the questions WITHOUT correct_answer.
 export async function findExamForStudent(examId: number, userId: number) {
   const [examResult, questionsResult] = await Promise.all([
     pool.query<{
@@ -192,10 +176,6 @@ export async function findExamForStudent(examId: number, userId: number) {
   return { ...exam, questions: questionsResult.rows };
 }
 
-// POST /student/exams/:id/attempts. The score is counted HERE, on the
-// server, with the correct answers from the database: the browser never
-// sees them, so it can't send "I got 100%".
-// Returns null when the exam doesn't exist, "no-questions" when it's empty.
 export async function submitAttempt(
   examId: number,
   userId: number,
@@ -216,13 +196,11 @@ export async function submitAttempt(
   const questions = questionsResult.rows;
   if (questions.length === 0) return "no-questions" as const;
 
-  // question id → the student's letter. Answers to questions of another
-  // exam are simply never looked up.
   const given = new Map(input.answers.map((a) => [a.question_id, a.answer]));
   const correct = questions.filter(
     (q) => given.get(q.id) === q.correct_answer,
   ).length;
-  const wrong = questions.length - correct; // unanswered counts as wrong
+  const wrong = questions.length - correct;
   const score = percent(correct, questions.length);
   const passed = score >= exam.pass_percent;
 

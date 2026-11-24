@@ -1,8 +1,6 @@
 import pool from "../db.js";
 import { percent } from "./enrollment.service.js";
 
-// Exam results (Natijalar): one row per finished attempt.
-
 export interface AttemptResult {
   id: number;
   exam_id: number;
@@ -42,7 +40,6 @@ function withScore(rows: Omit<AttemptResult, "score_percent">[]) {
   }));
 }
 
-// All attempts in one course (for the admin and the course's mentors).
 export async function findByCourse(courseId: number) {
   const { rows } = await pool.query<Omit<AttemptResult, "score_percent">>(
     `${SELECT_ATTEMPTS} WHERE c.id = $1 ORDER BY a.id DESC`,
@@ -51,7 +48,6 @@ export async function findByCourse(courseId: number) {
   return withScore(rows);
 }
 
-// All attempts of one student (their own results page).
 export async function findByUser(userId: number) {
   const { rows } = await pool.query<Omit<AttemptResult, "score_percent">>(
     `${SELECT_ATTEMPTS} WHERE a.user_id = $1 ORDER BY a.id DESC`,

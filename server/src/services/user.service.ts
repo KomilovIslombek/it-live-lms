@@ -65,8 +65,6 @@ export async function listUsers({
 }: ListUsersQuery) {
   const offset = (page - 1) * limit;
   const queryParams: (string | number | boolean)[] = [];
-  // Every filter adds one condition; at the end they are joined with AND.
-  // So the order and the number of filters never matter.
   const conditions: string[] = [];
 
   if (role) {
@@ -76,7 +74,6 @@ export async function listUsers({
 
   if (search) {
     queryParams.push(`%${search}%`);
-    // The same $n twice: one value, used for the name and for the phone.
     conditions.push(
       `(u.full_name ILIKE $${queryParams.length} OR u.phone ILIKE $${queryParams.length})`,
     );
@@ -90,8 +87,6 @@ export async function listUsers({
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const from = `FROM users u JOIN roles r ON r.id = u.role_id ${where}`;
 
-  // The page and the total are independent, so run them at the same time.
-  // The count uses the same WHERE and params, but no LIMIT/OFFSET.
   const [pageResult, countResult] = await Promise.all([
     pool.query<UserListItem>(
       `SELECT u.id, u.full_name, u.phone, u.email, u.status,
@@ -113,8 +108,6 @@ export async function listUsers({
   };
 }
 
-// Everything about one user except the password hash, for the admin's
-// user page and edit form.
 export interface UserDetails {
   id: number;
   full_name: string;
@@ -152,11 +145,8 @@ export async function findUserDetailsById(id: number) {
   return rows[0] ?? null;
 }
 
-const BCRYPT_COST = 12; // the same as the seed script
+const BCRYPT_COST = 12;
 
-// The request sends a role name ("student"), the table stores role_id.
-// INSERT ... SELECT takes the id from the roles table in the same query.
-// Throws UNIQUE_VIOLATION when the phone or email is already used.
 export async function createUser(input: CreateUserInput) {
   const passwordHash = await bcrypt.hash(input.password, BCRYPT_COST);
 
@@ -187,14 +177,11 @@ export async function createUser(input: CreateUserInput) {
     ],
   );
   const id = rows[0]?.id;
-  // No row: the role isn't in the roles table (the seed wasn't run).
   if (id === undefined) throw new Error(`Role "${input.role}" not found`);
   return findUserDetailsById(id);
 }
 
-// Returns null when there is no user with this id.
 export async function updateUser(id: number, changes: UpdateUserInput) {
-  // Two fields don't map 1:1 to a column, so turn them into columns first.
   const { password, role, ...columns } = changes;
   const set: Record<string, unknown> = { ...columns };
 
@@ -219,9 +206,6 @@ export async function updateUser(id: number, changes: UpdateUserInput) {
   return findUserDetailsById(id);
 }
 
-// true when a row was deleted, false when the id didn't exist.
-// Enrollments, progress and exam attempts go with the user (CASCADE);
-// payments block the delete (RESTRICT → RESTRICT_VIOLATION).
 export async function deleteUser(id: number) {
   const { rowCount } = await pool.query("DELETE FROM users WHERE id = $1", [
     id,

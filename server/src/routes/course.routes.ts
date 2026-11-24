@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { uploadCourseMedia } from "../utils/upload.js";
 import {
   createCourse,
   deleteCourse,
@@ -7,13 +8,12 @@ import {
   updateCourse,
 } from "../controllers/course.controller.js";
 
-// Mounted inside the admin router at /courses (admin only).
 const router = Router();
 
 router.get("/", listCourses);
 router.get("/:id", getCourse);
-router.post("/", createCourse);
-router.patch("/:id", updateCourse);
+router.post("/", uploadCourseMedia, createCourse);
+router.patch("/:id", uploadCourseMedia, updateCourse);
 router.delete("/:id", deleteCourse);
 
 export default router;

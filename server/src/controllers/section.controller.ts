@@ -8,12 +8,15 @@ import { parseId, sendValidationError } from "../utils/http.js";
 import { FOREIGN_KEY_VIOLATION, pgError } from "../utils/pg-errors.js";
 import { rowExists } from "../utils/sql.js";
 
-// GET /admin/courses/:courseId/sections
+import {
+  deleteStoredFiles,
+  storedFilesOf,
+} from "../services/stored-files.service.js";
+
 export async function listSections(req: Request, res: Response) {
   const courseId = parseId(req.params.courseId);
   if (courseId === null) return res.status(400).json({ error: "Invalid id" });
 
-  // An empty list and "no such course" are different answers.
   if (!(await rowExists("courses", courseId))) {
     return res.status(404).json({ error: "Course not found" });
   }
@@ -22,7 +25,6 @@ export async function listSections(req: Request, res: Response) {
     .json({ sections: await sections.findByCourse(courseId) });
 }
 
-// GET /admin/sections/:id (with its lessons)
 export async function getSection(req: Request, res: Response) {
   const id = parseId(req.params.id);
   if (id === null) return res.status(400).json({ error: "Invalid id" });
@@ -32,7 +34,6 @@ export async function getSection(req: Request, res: Response) {
   return res.status(200).json({ section });
 }
 
-// POST /admin/courses/:courseId/sections
 export async function createSection(req: Request, res: Response) {
   const courseId = parseId(req.params.courseId);
   if (courseId === null) return res.status(400).json({ error: "Invalid id" });
@@ -44,7 +45,6 @@ export async function createSection(req: Request, res: Response) {
     const section = await sections.insert(courseId, parsed.data);
     return res.status(201).json({ section });
   } catch (err) {
-    // The foreign key refused it: the course in the URL doesn't exist.
     if (pgError(err).code === FOREIGN_KEY_VIOLATION) {
       return res.status(404).json({ error: "Course not found" });
     }
@@ -52,7 +52,6 @@ export async function createSection(req: Request, res: Response) {
   }
 }
 
-// PATCH /admin/sections/:id
 export async function updateSection(req: Request, res: Response) {
   const id = parseId(req.params.id);
   if (id === null) return res.status(400).json({ error: "Invalid id" });
@@ -68,12 +67,13 @@ export async function updateSection(req: Request, res: Response) {
   return res.status(200).json({ section });
 }
 
-// DELETE /admin/sections/:id (its lessons and materials go with it)
 export async function deleteSection(req: Request, res: Response) {
   const id = parseId(req.params.id);
   if (id === null) return res.status(400).json({ error: "Invalid id" });
 
+  const files = await storedFilesOf("section", id);
   const deleted = await sections.remove(id);
   if (!deleted) return res.status(404).json({ error: "Section not found" });
+  await deleteStoredFiles(files);
   return res.status(204).end();
 }

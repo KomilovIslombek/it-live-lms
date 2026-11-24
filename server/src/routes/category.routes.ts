@@ -7,8 +7,6 @@ import {
   updateCategory,
 } from "../controllers/category.controller.js";
 
-// Mounted inside the admin router at /categories, so every route here is
-// already behind requireAuth + requireRole("admin").
 const router = Router();
 
 router.get("/", listCategories);

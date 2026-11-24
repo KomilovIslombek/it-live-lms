@@ -44,19 +44,8 @@ import {
   listCourseStudents,
 } from "../controllers/enrollment.controller.js";
 import type { CourseGuard } from "../middleware/course-access.middleware.js";
+import { uploadAttachments, uploadLessonVideo } from "../utils/upload.js";
 
-// Course content: course → sections → lessons → materials / exercises /
-// exams → questions.
-//
-// The pattern: list and create go under the parent (/courses/7/sections),
-// everything about one item uses its own id (/sections/3). Short URLs,
-// and no need to send the parent's id twice.
-//
-// The same routes serve two panels, so this is a function, not one router:
-// - admin:  createContentRouter(allowAll)          → every course
-// - mentor: createContentRouter(mentorOwnsCourse)  → only their courses
-// `guard(kind, param)` runs before each controller and checks which
-// course the item in the URL belongs to.
 export function createContentRouter(guard: CourseGuard) {
   const router = Router();
 
@@ -82,10 +71,16 @@ export function createContentRouter(guard: CourseGuard) {
   router.post(
     "/sections/:sectionId/lessons",
     guard("section", "sectionId"),
+    uploadLessonVideo,
     createLesson,
   );
   router.get("/lessons/:id", guard("lesson", "id"), getLesson);
-  router.patch("/lessons/:id", guard("lesson", "id"), updateLesson);
+  router.patch(
+    "/lessons/:id",
+    guard("lesson", "id"),
+    uploadLessonVideo,
+    updateLesson,
+  );
   router.delete("/lessons/:id", guard("lesson", "id"), deleteLesson);
 
   router.get(
@@ -96,10 +91,16 @@ export function createContentRouter(guard: CourseGuard) {
   router.post(
     "/lessons/:lessonId/materials",
     guard("lesson", "lessonId"),
+    uploadAttachments,
     createMaterial,
   );
   router.get("/materials/:id", guard("material", "id"), getMaterial);
-  router.patch("/materials/:id", guard("material", "id"), updateMaterial);
+  router.patch(
+    "/materials/:id",
+    guard("material", "id"),
+    uploadAttachments,
+    updateMaterial,
+  );
   router.delete("/materials/:id", guard("material", "id"), deleteMaterial);
 
   router.get(
@@ -110,10 +111,16 @@ export function createContentRouter(guard: CourseGuard) {
   router.post(
     "/lessons/:lessonId/exercises",
     guard("lesson", "lessonId"),
+    uploadAttachments,
     createExercise,
   );
   router.get("/exercises/:id", guard("exercise", "id"), getExercise);
-  router.patch("/exercises/:id", guard("exercise", "id"), updateExercise);
+  router.patch(
+    "/exercises/:id",
+    guard("exercise", "id"),
+    uploadAttachments,
+    updateExercise,
+  );
   router.delete("/exercises/:id", guard("exercise", "id"), deleteExercise);
 
   router.get(
@@ -144,7 +151,6 @@ export function createContentRouter(guard: CourseGuard) {
   router.patch("/questions/:id", guard("question", "id"), updateQuestion);
   router.delete("/questions/:id", guard("question", "id"), deleteQuestion);
 
-  // Read-only views of a course's students (with progress) and results.
   router.get(
     "/courses/:courseId/students",
     guard("course", "courseId"),

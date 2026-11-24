@@ -17,7 +17,6 @@ import { createContentRouter } from "./content.routes.js";
 
 const router = express.Router();
 
-// Everything below needs a logged-in admin.
 router.use(requireAuth, requireRole("admin"));
 
 router.get("/stats", getStats);
@@ -26,15 +25,12 @@ router.use("/categories", categoryRoutes);
 router.use("/levels", levelRoutes);
 router.use("/courses", courseRoutes);
 
-// Who teaches and who studies a course. Only the admin changes this.
 router.get("/courses/:courseId/mentors", listCourseMentors);
 router.post("/courses/:courseId/mentors", addCourseMentor);
 router.delete("/courses/:courseId/mentors/:userId", removeCourseMentor);
 router.post("/courses/:courseId/students", enrollCourseStudent);
 router.delete("/courses/:courseId/students/:userId", unenrollCourseStudent);
 
-// Sections, lessons, materials, exercises, exams, questions, and the
-// course's students and results: every course (allowAll).
 router.use(createContentRouter(allowAll));
 
 export default router;

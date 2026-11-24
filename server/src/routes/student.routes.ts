@@ -12,9 +12,6 @@ import {
   uncompleteLesson,
 } from "../controllers/student.controller.js";
 
-// /api/v1/student: the student's side. Read-only, except marking lessons
-// as done and taking exams. Every course, lesson and exam route checks
-// first that the student is enrolled in its course (otherwise 403).
 const router = express.Router();
 
 router.use(requireAuth, requireRole("student"));

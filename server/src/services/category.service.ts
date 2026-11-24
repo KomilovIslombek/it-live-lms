@@ -13,17 +13,12 @@ export interface Category {
   updated_at: Date;
 }
 
-// courses_count: how many courses use the category (shown in the admin
-// table, and the reason a delete can be refused). COUNT(*) comes back from
-// node-postgres as a string, so ::int turns it into a number.
 const SELECT_CATEGORY = `
   SELECT c.id, c.title, c.slug, c.description, c.status,
     (SELECT COUNT(*)::int FROM courses co WHERE co.category_id = c.id) AS courses_count,
     c.created_at, c.updated_at
   FROM categories c`;
 
-// No pagination: categories are a short list, and the course form needs
-// all of them for its dropdown.
 export async function findAll() {
   const { rows } = await pool.query<Category>(
     `${SELECT_CATEGORY} ORDER BY c.id`,
@@ -58,7 +53,6 @@ export async function insert(category: NewCategory) {
   return findById(id);
 }
 
-// Returns null when there is no category with this id.
 export async function update(id: number, changes: UpdateCategoryInput) {
   const { set, values } = buildSet(changes);
   const { rows } = await pool.query<{ id: number }>(
@@ -69,8 +63,6 @@ export async function update(id: number, changes: UpdateCategoryInput) {
   return findById(id);
 }
 
-// true when a row was deleted, false when the id didn't exist.
-// Throws RESTRICT_VIOLATION when courses still use the category.
 export async function remove(id: number) {
   const { rowCount } = await pool.query(
     "DELETE FROM categories WHERE id = $1",

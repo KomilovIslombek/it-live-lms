@@ -4,17 +4,14 @@ import { findByUser as findMyResults } from "../services/result.service.js";
 import { submitAttemptSchema } from "../schemas/content.schema.js";
 import { parseId, sendValidationError } from "../utils/http.js";
 
-// The student's own id, from the token (requireAuth put it there).
 const me = (req: Request) => Number(req.user?.sub);
 
-// GET /student/courses
 export async function listMyCourses(req: Request, res: Response) {
   return res
     .status(200)
     .json({ courses: await student.findMyCourses(me(req)) });
 }
 
-// GET /student/courses/:id (sections, lessons, my progress)
 export async function getMyCourse(req: Request, res: Response) {
   const id = parseId(req.params.id);
   if (id === null) return res.status(400).json({ error: "Invalid id" });
@@ -24,7 +21,6 @@ export async function getMyCourse(req: Request, res: Response) {
   return res.status(200).json({ course });
 }
 
-// GET /student/lessons/:id
 export async function getMyLesson(req: Request, res: Response) {
   const id = parseId(req.params.id);
   if (id === null) return res.status(400).json({ error: "Invalid id" });
@@ -34,7 +30,6 @@ export async function getMyLesson(req: Request, res: Response) {
   return res.status(200).json({ lesson });
 }
 
-// POST /student/lessons/:id/complete  and  DELETE (undo)
 async function setCompleted(req: Request, res: Response, done: boolean) {
   const id = parseId(req.params.id);
   if (id === null) return res.status(400).json({ error: "Invalid id" });
@@ -58,7 +53,6 @@ export const completeLesson = (req: Request, res: Response) =>
 export const uncompleteLesson = (req: Request, res: Response) =>
   setCompleted(req, res, false);
 
-// GET /student/exams/:id (questions without the correct answers)
 export async function getMyExam(req: Request, res: Response) {
   const id = parseId(req.params.id);
   if (id === null) return res.status(400).json({ error: "Invalid id" });
@@ -68,7 +62,6 @@ export async function getMyExam(req: Request, res: Response) {
   return res.status(200).json({ exam });
 }
 
-// POST /student/exams/:id/attempts
 export async function submitAttempt(req: Request, res: Response) {
   const id = parseId(req.params.id);
   if (id === null) return res.status(400).json({ error: "Invalid id" });
@@ -84,7 +77,6 @@ export async function submitAttempt(req: Request, res: Response) {
   return res.status(201).json({ attempt: result });
 }
 
-// GET /student/results (all my exam attempts)
 export async function listMyResults(req: Request, res: Response) {
   return res.status(200).json({ results: await findMyResults(me(req)) });
 }

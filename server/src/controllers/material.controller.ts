@@ -7,10 +7,12 @@ import {
 import { parseId, sendValidationError } from "../utils/http.js";
 import { FOREIGN_KEY_VIOLATION, pgError } from "../utils/pg-errors.js";
 import { rowExists } from "../utils/sql.js";
+import { fileRows } from "../utils/upload.js";
+import {
+  deleteStoredFiles,
+  storedFilesOf,
+} from "../services/stored-files.service.js";
 
-// Same structure as section.controller.ts.
-
-// GET /admin/lessons/:lessonId/materials
 export async function listMaterials(req: Request, res: Response) {
   const lessonId = parseId(req.params.lessonId);
   if (lessonId === null) return res.status(400).json({ error: "Invalid id" });
@@ -23,7 +25,6 @@ export async function listMaterials(req: Request, res: Response) {
     .json({ materials: await materials.findByLesson(lessonId) });
 }
 
-// GET /admin/materials/:id
 export async function getMaterial(req: Request, res: Response) {
   const id = parseId(req.params.id);
   if (id === null) return res.status(400).json({ error: "Invalid id" });
@@ -33,7 +34,6 @@ export async function getMaterial(req: Request, res: Response) {
   return res.status(200).json({ material });
 }
 
-// POST /admin/lessons/:lessonId/materials
 export async function createMaterial(req: Request, res: Response) {
   const lessonId = parseId(req.params.lessonId);
   if (lessonId === null) return res.status(400).json({ error: "Invalid id" });
@@ -42,7 +42,10 @@ export async function createMaterial(req: Request, res: Response) {
   if (!parsed.success) return sendValidationError(res, parsed.error);
 
   try {
-    const material = await materials.insert(lessonId, parsed.data);
+    const material = await materials.insert(lessonId, {
+      ...parsed.data,
+      files: fileRows(req, "files"),
+    });
     return res.status(201).json({ material });
   } catch (err) {
     if (pgError(err).code === FOREIGN_KEY_VIOLATION) {
@@ -52,28 +55,32 @@ export async function createMaterial(req: Request, res: Response) {
   }
 }
 
-// PATCH /admin/materials/:id
 export async function updateMaterial(req: Request, res: Response) {
   const id = parseId(req.params.id);
   if (id === null) return res.status(400).json({ error: "Invalid id" });
 
   const parsed = updateMaterialSchema.safeParse(req.body);
   if (!parsed.success) return sendValidationError(res, parsed.error);
-  if (Object.keys(parsed.data).length === 0) {
+  const files = fileRows(req, "files");
+  const changes = { ...parsed.data, ...(files.length ? { files } : {}) };
+  if (Object.keys(changes).length === 0) {
     return res.status(400).json({ error: "Nothing to update" });
   }
 
-  const material = await materials.update(id, parsed.data);
+  const oldFiles = files.length ? await storedFilesOf("material", id) : [];
+  const material = await materials.update(id, changes);
   if (!material) return res.status(404).json({ error: "Material not found" });
+  await deleteStoredFiles(oldFiles);
   return res.status(200).json({ material });
 }
 
-// DELETE /admin/materials/:id
 export async function deleteMaterial(req: Request, res: Response) {
   const id = parseId(req.params.id);
   if (id === null) return res.status(400).json({ error: "Invalid id" });
 
+  const files = await storedFilesOf("material", id);
   const deleted = await materials.remove(id);
   if (!deleted) return res.status(404).json({ error: "Material not found" });
+  await deleteStoredFiles(files);
   return res.status(204).end();
 }

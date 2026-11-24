@@ -14,12 +14,10 @@ import { slugify } from "../utils/slug.js";
 
 const SLUG_TAKEN = "A category with this slug already exists";
 
-// GET /admin/categories
 export async function listCategories(_req: Request, res: Response) {
   return res.status(200).json({ categories: await categories.findAll() });
 }
 
-// GET /admin/categories/:id
 export async function getCategory(req: Request, res: Response) {
   const id = parseId(req.params.id);
   if (id === null) return res.status(400).json({ error: "Invalid id" });
@@ -30,7 +28,6 @@ export async function getCategory(req: Request, res: Response) {
   return res.status(200).json({ category });
 }
 
-// POST /admin/categories
 export async function createCategory(req: Request, res: Response) {
   const parsed = createCategorySchema.safeParse(req.body);
   if (!parsed.success) return sendValidationError(res, parsed.error);
@@ -57,11 +54,10 @@ export async function createCategory(req: Request, res: Response) {
     if (pgError(err).code === UNIQUE_VIOLATION) {
       return res.status(409).json({ error: SLUG_TAKEN });
     }
-    throw err; // anything else is a real 500, handled by errorHandler
+    throw err;
   }
 }
 
-// PATCH /admin/categories/:id
 export async function updateCategory(req: Request, res: Response) {
   const id = parseId(req.params.id);
   if (id === null) return res.status(400).json({ error: "Invalid id" });
@@ -84,7 +80,6 @@ export async function updateCategory(req: Request, res: Response) {
   }
 }
 
-// DELETE /admin/categories/:id
 export async function deleteCategory(req: Request, res: Response) {
   const id = parseId(req.params.id);
   if (id === null) return res.status(400).json({ error: "Invalid id" });
@@ -94,7 +89,6 @@ export async function deleteCategory(req: Request, res: Response) {
     if (!deleted) return res.status(404).json({ error: "Category not found" });
     return res.status(204).end();
   } catch (err) {
-    // ON DELETE RESTRICT: courses still use this category.
     if (isStillReferenced(err)) {
       return res.status(409).json({
         error: "Courses use this category. Move them or set status: false",

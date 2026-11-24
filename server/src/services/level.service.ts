@@ -2,8 +2,6 @@ import pool from "../db.js";
 import { buildSet } from "../utils/sql.js";
 import type { UpdateLevelInput } from "../schemas/level.schema.js";
 
-// Same structure as category.service.ts.
-
 export interface Level {
   id: number;
   title: string;

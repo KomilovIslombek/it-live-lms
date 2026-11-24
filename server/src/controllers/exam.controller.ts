@@ -10,10 +10,6 @@ import { parseId, sendValidationError } from "../utils/http.js";
 import { FOREIGN_KEY_VIOLATION, pgError } from "../utils/pg-errors.js";
 import { rowExists } from "../utils/sql.js";
 
-// Exams of a lesson, and the questions of an exam. Same structure as the
-// other content controllers.
-
-// GET /lessons/:lessonId/exams
 export async function listExams(req: Request, res: Response) {
   const lessonId = parseId(req.params.lessonId);
   if (lessonId === null) return res.status(400).json({ error: "Invalid id" });
@@ -24,7 +20,6 @@ export async function listExams(req: Request, res: Response) {
   return res.status(200).json({ exams: await exams.findByLesson(lessonId) });
 }
 
-// GET /exams/:id (with its questions and correct answers)
 export async function getExam(req: Request, res: Response) {
   const id = parseId(req.params.id);
   if (id === null) return res.status(400).json({ error: "Invalid id" });
@@ -34,7 +29,6 @@ export async function getExam(req: Request, res: Response) {
   return res.status(200).json({ exam });
 }
 
-// POST /lessons/:lessonId/exams
 export async function createExam(req: Request, res: Response) {
   const lessonId = parseId(req.params.lessonId);
   if (lessonId === null) return res.status(400).json({ error: "Invalid id" });
@@ -53,7 +47,6 @@ export async function createExam(req: Request, res: Response) {
   }
 }
 
-// PATCH /exams/:id
 export async function updateExam(req: Request, res: Response) {
   const id = parseId(req.params.id);
   if (id === null) return res.status(400).json({ error: "Invalid id" });
@@ -69,7 +62,6 @@ export async function updateExam(req: Request, res: Response) {
   return res.status(200).json({ exam });
 }
 
-// DELETE /exams/:id
 export async function deleteExam(req: Request, res: Response) {
   const id = parseId(req.params.id);
   if (id === null) return res.status(400).json({ error: "Invalid id" });
@@ -79,9 +71,6 @@ export async function deleteExam(req: Request, res: Response) {
   return res.status(204).end();
 }
 
-// --- Questions ---
-
-// GET /exams/:examId/questions
 export async function listQuestions(req: Request, res: Response) {
   const examId = parseId(req.params.examId);
   if (examId === null) return res.status(400).json({ error: "Invalid id" });
@@ -92,7 +81,6 @@ export async function listQuestions(req: Request, res: Response) {
   return res.status(200).json({ questions: await exams.findQuestions(examId) });
 }
 
-// GET /questions/:id
 export async function getQuestion(req: Request, res: Response) {
   const id = parseId(req.params.id);
   if (id === null) return res.status(400).json({ error: "Invalid id" });
@@ -102,7 +90,6 @@ export async function getQuestion(req: Request, res: Response) {
   return res.status(200).json({ question });
 }
 
-// POST /exams/:examId/questions
 export async function createQuestion(req: Request, res: Response) {
   const examId = parseId(req.params.examId);
   if (examId === null) return res.status(400).json({ error: "Invalid id" });
@@ -121,7 +108,6 @@ export async function createQuestion(req: Request, res: Response) {
   }
 }
 
-// PATCH /questions/:id
 export async function updateQuestion(req: Request, res: Response) {
   const id = parseId(req.params.id);
   if (id === null) return res.status(400).json({ error: "Invalid id" });
@@ -137,7 +123,6 @@ export async function updateQuestion(req: Request, res: Response) {
   return res.status(200).json({ question });
 }
 
-// DELETE /questions/:id
 export async function deleteQuestion(req: Request, res: Response) {
   const id = parseId(req.params.id);
   if (id === null) return res.status(400).json({ error: "Invalid id" });

@@ -8,13 +8,10 @@ interface Totals {
   categories: number;
   enrollments: number;
   succeeded_payments: number;
-  revenue: string; // NUMERIC → string, exact
+  revenue: string;
   revenue_this_month: string;
 }
 
-// Numbers for the cards on the admin dashboard. One query with several
-// small sub-queries: one round trip to the database instead of nine.
-// COALESCE turns the SUM of zero rows (NULL) into 0.
 export async function getDashboardStats() {
   const [totalsResult, rolesResult] = await Promise.all([
     pool.query<Totals>(
@@ -32,7 +29,6 @@ export async function getDashboardStats() {
             WHERE status = 'succeeded'
               AND paid_at >= date_trunc('month', now())) AS revenue_this_month`,
     ),
-    // Users per role. LEFT JOIN keeps roles with nobody in them (0).
     pool.query<{ role: string; count: number }>(
       `SELECT r.title AS role, COUNT(u.id)::int AS count
         FROM roles r
@@ -44,7 +40,6 @@ export async function getDashboardStats() {
   const totals = totalsResult.rows[0];
   if (!totals) throw new Error("The stats query returned no row");
 
-  // [{ role: "student", count: 12 }, ...] → { student: 12, ... }
   const usersByRole: Record<string, number> = {};
   for (const row of rolesResult.rows) usersByRole[row.role] = row.count;
 

@@ -807,6 +807,36 @@
               ]
             },
             {
+              "name": "Upload a profile photo",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/admin/users/{{studentId}}",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "profile_img",
+                      "type": "file",
+                      "src": "fixtures/avatar.png"
+                    }
+                  ]
+                },
+                "description": "form-data: text fields plus files. In the Postman app the files come from fixtures/ (Settings → General → Working directory = the repo's postman/ folder). The photo goes under the key \"profile_img\"."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"Photo was uploaded\", () => pm.expect(pm.response.json().user.profile_img).to.match(/^\\/uploads\\/avatars\\/.+\\.png$/));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
               "name": "Filter users by status=true",
               "request": {
                 "method": "GET",
@@ -1409,17 +1439,47 @@
               "request": {
                 "method": "POST",
                 "url": "{{baseUrl}}/api/v1/admin/courses",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
                 "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"title\": \"Test course {{runId}}\",\n  \"description\": \"Created by the Postman tests\",\n  \"price\": 1200000,\n  \"banner\": \"https://example.com/banner.jpg\",\n  \"category_id\": {{categoryId}},\n  \"level_id\": {{levelId}}\n}"
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "title",
+                      "value": "Test course {{runId}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "description",
+                      "value": "Created by the Postman tests",
+                      "type": "text"
+                    },
+                    {
+                      "key": "price",
+                      "value": "1200000",
+                      "type": "text"
+                    },
+                    {
+                      "key": "category_id",
+                      "value": "{{categoryId}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "level_id",
+                      "value": "{{levelId}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "banner",
+                      "type": "file",
+                      "src": "fixtures/banner.png"
+                    },
+                    {
+                      "key": "intro_video",
+                      "type": "file",
+                      "src": "fixtures/intro.mp4"
+                    }
+                  ]
                 },
-                "description": "category_id and level_id come from the requests above. price comes back as a string (\"1200000.00\"): PostgreSQL NUMERIC is exact, and node-postgres keeps it a string."
+                "description": "form-data: text fields plus files. In the Postman app the files come from fixtures/ (Settings → General → Working directory = the repo's postman/ folder). banner (image) is required, intro_video (video) is optional. price comes back as a string (\"1200000.00\")."
               },
               "event": [
                 {
@@ -1435,7 +1495,257 @@
                       "  pm.expect(course.level).to.include(\"Test level\");",
                       "});",
                       "pm.test(\"No students yet\", () => pm.expect(course.students_count).to.eql(0));",
-                      "pm.collectionVariables.set(\"courseId\", course.id);"
+                      "pm.collectionVariables.set(\"courseId\", course.id);",
+                      "pm.test(\"Banner and intro video were uploaded\", () => {",
+                      "  pm.expect(course.banner).to.match(/^\\/uploads\\/banners\\/.+\\.png$/);",
+                      "  pm.expect(course.intro_video).to.match(/^\\/uploads\\/videos\\/.+\\.mp4$/);",
+                      "});",
+                      "pm.collectionVariables.set(\"bannerPath\", course.banner);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Download the uploaded banner",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}{{bannerPath}}",
+                "description": "The server serves server/uploads at /uploads, so the stored path opens directly."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "pm.test(\"It is the PNG image\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"image/png\"));",
+                      "pm.test(\"nosniff header\", () => pm.expect(pm.response.headers.get(\"X-Content-Type-Options\")).to.eql(\"nosniff\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create course without a banner → 400",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/courses",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "title",
+                      "value": "No banner",
+                      "type": "text"
+                    },
+                    {
+                      "key": "description",
+                      "value": "Created by the Postman tests",
+                      "type": "text"
+                    },
+                    {
+                      "key": "price",
+                      "value": "1200000",
+                      "type": "text"
+                    },
+                    {
+                      "key": "category_id",
+                      "value": "{{categoryId}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "level_id",
+                      "value": "{{levelId}}",
+                      "type": "text"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                      "pm.test(\"Explains the banner field\", () => {",
+                      "  const body = pm.response.json();",
+                      "  pm.expect(body.error).to.eql(\"Invalid request\");",
+                      "  pm.expect(body.details).to.have.property(\"banner\");",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create course with an .exe as banner → 400",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/courses",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "title",
+                      "value": "Exe banner",
+                      "type": "text"
+                    },
+                    {
+                      "key": "description",
+                      "value": "Created by the Postman tests",
+                      "type": "text"
+                    },
+                    {
+                      "key": "price",
+                      "value": "1200000",
+                      "type": "text"
+                    },
+                    {
+                      "key": "category_id",
+                      "value": "{{categoryId}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "level_id",
+                      "value": "{{levelId}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "banner",
+                      "type": "file",
+                      "src": "fixtures/virus.exe"
+                    }
+                  ]
+                },
+                "description": "Only images (jpg, png, webp, gif) are accepted as a banner."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                      "pm.test(\"Explains the banner field\", () => {",
+                      "  const body = pm.response.json();",
+                      "  pm.expect(body.error).to.eql(\"Invalid request\");",
+                      "  pm.expect(body.details).to.have.property(\"banner\");",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create course with a video as banner → 400",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/admin/courses",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "title",
+                      "value": "Video banner",
+                      "type": "text"
+                    },
+                    {
+                      "key": "description",
+                      "value": "Created by the Postman tests",
+                      "type": "text"
+                    },
+                    {
+                      "key": "price",
+                      "value": "1200000",
+                      "type": "text"
+                    },
+                    {
+                      "key": "category_id",
+                      "value": "{{categoryId}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "level_id",
+                      "value": "{{levelId}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "banner",
+                      "type": "file",
+                      "src": "fixtures/intro.mp4"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                      "pm.test(\"Explains the banner field\", () => {",
+                      "  const body = pm.response.json();",
+                      "  pm.expect(body.error).to.eql(\"Invalid request\");",
+                      "  pm.expect(body.details).to.have.property(\"banner\");",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Replace the banner",
+              "request": {
+                "method": "PATCH",
+                "url": "{{baseUrl}}/api/v1/admin/courses/{{courseId}}",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "banner",
+                      "type": "file",
+                      "src": "fixtures/banner.png"
+                    }
+                  ]
+                },
+                "description": "A new file replaces the old one; the old file is deleted from disk."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "const { course } = pm.response.json();",
+                      "pm.test(\"A new banner path\", () => {",
+                      "  pm.expect(course.banner).to.match(/^\\/uploads\\/banners\\//);",
+                      "  pm.expect(course.banner).to.not.eql(pm.collectionVariables.get(\"bannerPath\"));",
+                      "});",
+                      "pm.collectionVariables.set(\"oldBannerPath\", pm.collectionVariables.get(\"bannerPath\"));",
+                      "pm.collectionVariables.set(\"bannerPath\", course.banner);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Old banner is gone → 404",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}{{oldBannerPath}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));"
                     ]
                   }
                 }
@@ -1446,15 +1756,40 @@
               "request": {
                 "method": "POST",
                 "url": "{{baseUrl}}/api/v1/admin/courses",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
                 "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"title\": \"Broken\",\n  \"description\": \"x\",\n  \"price\": 1,\n  \"banner\": \"x.jpg\",\n  \"category_id\": 2147483647,\n  \"level_id\": {{levelId}}\n}"
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "title",
+                      "value": "Broken",
+                      "type": "text"
+                    },
+                    {
+                      "key": "description",
+                      "value": "x",
+                      "type": "text"
+                    },
+                    {
+                      "key": "price",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "category_id",
+                      "value": "2147483647",
+                      "type": "text"
+                    },
+                    {
+                      "key": "level_id",
+                      "value": "{{levelId}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "banner",
+                      "type": "file",
+                      "src": "fixtures/banner.png"
+                    }
+                  ]
                 },
                 "description": "The id is valid, but no such category exists: the database's foreign key refuses it, and the API answers 400 for that field."
               },
@@ -1480,15 +1815,40 @@
               "request": {
                 "method": "POST",
                 "url": "{{baseUrl}}/api/v1/admin/courses",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
                 "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"title\": \"Broken\",\n  \"description\": \"x\",\n  \"price\": -5,\n  \"banner\": \"x.jpg\",\n  \"category_id\": {{categoryId}},\n  \"level_id\": {{levelId}}\n}"
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "title",
+                      "value": "Broken",
+                      "type": "text"
+                    },
+                    {
+                      "key": "description",
+                      "value": "x",
+                      "type": "text"
+                    },
+                    {
+                      "key": "price",
+                      "value": "-5",
+                      "type": "text"
+                    },
+                    {
+                      "key": "category_id",
+                      "value": "{{categoryId}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "level_id",
+                      "value": "{{levelId}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "banner",
+                      "type": "file",
+                      "src": "fixtures/banner.png"
+                    }
+                  ]
                 }
               },
               "event": [
@@ -1785,16 +2145,27 @@
               "request": {
                 "method": "POST",
                 "url": "{{baseUrl}}/api/v1/admin/sections/{{sectionId}}/lessons",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
                 "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"title\": \"What is HTML\",\n  \"description\": \"The first lesson\",\n  \"video_url\": \"https://example.com/video.mp4\"\n}"
-                }
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "title",
+                      "value": "What is HTML",
+                      "type": "text"
+                    },
+                    {
+                      "key": "description",
+                      "value": "The first lesson",
+                      "type": "text"
+                    },
+                    {
+                      "key": "video",
+                      "type": "file",
+                      "src": "fixtures/lesson.mp4"
+                    }
+                  ]
+                },
+                "description": "form-data: text fields plus files. In the Postman app the files come from fixtures/ (Settings → General → Working directory = the repo's postman/ folder). The lesson video goes under the key \"video\"."
               },
               "event": [
                 {
@@ -1809,7 +2180,8 @@
                       "  pm.expect(lesson.course_id).to.eql(pm.collectionVariables.get(\"courseId\"));",
                       "  pm.expect(lesson.materials).to.eql([]);",
                       "});",
-                      "pm.collectionVariables.set(\"lessonId\", lesson.id);"
+                      "pm.collectionVariables.set(\"lessonId\", lesson.id);",
+                      "pm.test(\"Video was uploaded\", () => pm.expect(lesson.video_url).to.match(/^\\/uploads\\/videos\\/.+\\.mp4$/));"
                     ]
                   }
                 }
@@ -1891,17 +2263,27 @@
               "request": {
                 "method": "POST",
                 "url": "{{baseUrl}}/api/v1/admin/lessons/{{lessonId}}/materials",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
                 "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"description\": \"Slides and the code from the lesson\",\n  \"files\": [\n    {\n      \"file_name\": \"slides.pdf\",\n      \"file_path\": \"https://example.com/slides.pdf\",\n      \"mime_type\": \"application/pdf\",\n      \"file_size\": 120000\n    },\n    {\n      \"file_name\": \"code.zip\",\n      \"file_path\": \"https://example.com/code.zip\"\n    }\n  ]\n}"
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "description",
+                      "value": "Slides and the code from the lesson",
+                      "type": "text"
+                    },
+                    {
+                      "key": "files",
+                      "type": "file",
+                      "src": "fixtures/slides.pdf"
+                    },
+                    {
+                      "key": "files",
+                      "type": "file",
+                      "src": "fixtures/code.zip"
+                    }
+                  ]
                 },
-                "description": "The material and its files are saved in one transaction: all or nothing."
+                "description": "form-data: text fields plus files. In the Postman app the files come from fixtures/ (Settings → General → Working directory = the repo's postman/ folder). Several files under the same key \"files\". The material and its files are saved in one transaction."
               },
               "event": [
                 {
@@ -1914,27 +2296,39 @@
                       "pm.test(\"Saved with both files\", () => {",
                       "  pm.expect(material.files.map((f) => f.file_name)).to.eql([\"slides.pdf\", \"code.zip\"]);",
                       "});",
-                      "pm.collectionVariables.set(\"materialId\", material.id);"
+                      "pm.collectionVariables.set(\"materialId\", material.id);",
+                      "pm.test(\"Files are stored with their size and type\", () => {",
+                      "  const slides = material.files[0];",
+                      "  pm.expect(slides.file_path).to.match(/^\\/uploads\\/files\\/.+\\.pdf$/);",
+                      "  pm.expect(slides.mime_type).to.eql(\"application/pdf\");",
+                      "  pm.expect(slides.file_size).to.be.above(0);",
+                      "});"
                     ]
                   }
                 }
               ]
             },
             {
-              "name": "Create material with a broken file → 400",
+              "name": "Create material with an .exe file → 400",
               "request": {
                 "method": "POST",
                 "url": "{{baseUrl}}/api/v1/admin/lessons/{{lessonId}}/materials",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
                 "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"description\": \"Bad\",\n  \"files\": [\n    {\n      \"file_name\": \"\"\n    }\n  ]\n}"
-                }
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "description",
+                      "value": "Bad",
+                      "type": "text"
+                    },
+                    {
+                      "key": "files",
+                      "type": "file",
+                      "src": "fixtures/virus.exe"
+                    }
+                  ]
+                },
+                "description": "Program files are refused; nothing is saved."
               },
               "event": [
                 {
@@ -1958,15 +2352,15 @@
               "request": {
                 "method": "PATCH",
                 "url": "{{baseUrl}}/api/v1/admin/materials/{{materialId}}",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
                 "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"files\": [\n    {\n      \"file_name\": \"slides-v2.pdf\",\n      \"file_path\": \"https://example.com/slides-v2.pdf\"\n    }\n  ]\n}"
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "files",
+                      "type": "file",
+                      "src": "fixtures/slides-v2.pdf"
+                    }
+                  ]
                 }
               },
               "event": [
@@ -2377,15 +2771,40 @@
               "request": {
                 "method": "POST",
                 "url": "{{baseUrl}}/api/v1/admin/courses",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
                 "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"title\": \"Roles course {{runId}}\",\n  \"description\": \"Taught by the test mentor\",\n  \"price\": 500000,\n  \"banner\": \"https://example.com/b.jpg\",\n  \"category_id\": {{categoryId}},\n  \"level_id\": {{levelId}}\n}"
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "title",
+                      "value": "Roles course {{runId}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "description",
+                      "value": "Taught by the test mentor",
+                      "type": "text"
+                    },
+                    {
+                      "key": "price",
+                      "value": "500000",
+                      "type": "text"
+                    },
+                    {
+                      "key": "category_id",
+                      "value": "{{categoryId}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "level_id",
+                      "value": "{{levelId}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "banner",
+                      "type": "file",
+                      "src": "fixtures/banner.png"
+                    }
+                  ]
                 }
               },
               "event": [
@@ -2406,15 +2825,40 @@
               "request": {
                 "method": "POST",
                 "url": "{{baseUrl}}/api/v1/admin/courses",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
                 "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"title\": \"Other course {{runId}}\",\n  \"description\": \"Nobody is linked to it\",\n  \"price\": 1,\n  \"banner\": \"x.jpg\",\n  \"category_id\": {{categoryId}},\n  \"level_id\": {{levelId}}\n}"
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "title",
+                      "value": "Other course {{runId}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "description",
+                      "value": "Nobody is linked to it",
+                      "type": "text"
+                    },
+                    {
+                      "key": "price",
+                      "value": "1",
+                      "type": "text"
+                    },
+                    {
+                      "key": "category_id",
+                      "value": "{{categoryId}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "level_id",
+                      "value": "{{levelId}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "banner",
+                      "type": "file",
+                      "src": "fixtures/banner.png"
+                    }
+                  ]
                 },
                 "description": "Used to check that a mentor or a student can't open a course that isn't theirs."
               },
@@ -2465,15 +2909,25 @@
               "request": {
                 "method": "POST",
                 "url": "{{baseUrl}}/api/v1/admin/sections/{{sectionId}}/lessons",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
                 "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"title\": \"Intro\",\n  \"description\": \"The first lesson\",\n  \"video_url\": \"https://example.com/v.mp4\"\n}"
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "title",
+                      "value": "Intro",
+                      "type": "text"
+                    },
+                    {
+                      "key": "description",
+                      "value": "The first lesson",
+                      "type": "text"
+                    },
+                    {
+                      "key": "video",
+                      "type": "file",
+                      "src": "fixtures/lesson.mp4"
+                    }
+                  ]
                 }
               },
               "event": [
@@ -2494,15 +2948,20 @@
               "request": {
                 "method": "POST",
                 "url": "{{baseUrl}}/api/v1/admin/lessons/{{lessonId}}/materials",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
                 "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"description\": \"Slides\",\n  \"files\": [\n    {\n      \"file_name\": \"slides.pdf\",\n      \"file_path\": \"https://example.com/slides.pdf\"\n    }\n  ]\n}"
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "description",
+                      "value": "Slides",
+                      "type": "text"
+                    },
+                    {
+                      "key": "files",
+                      "type": "file",
+                      "src": "fixtures/slides.pdf"
+                    }
+                  ]
                 }
               },
               "event": [
@@ -2522,15 +2981,20 @@
               "request": {
                 "method": "POST",
                 "url": "{{baseUrl}}/api/v1/admin/lessons/{{lessonId}}/exercises",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
                 "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"title\": \"Homework: build a page\",\n  \"files\": [\n    {\n      \"file_name\": \"task.pdf\",\n      \"file_path\": \"https://example.com/task.pdf\"\n    }\n  ]\n}"
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "title",
+                      "value": "Homework: build a page",
+                      "type": "text"
+                    },
+                    {
+                      "key": "files",
+                      "type": "file",
+                      "src": "fixtures/task.pdf"
+                    }
+                  ]
                 },
                 "description": "Exercises (Vazifalar) work like materials: a row and its files in one transaction."
               },
@@ -2554,15 +3018,15 @@
               "request": {
                 "method": "POST",
                 "url": "{{baseUrl}}/api/v1/admin/lessons/{{lessonId}}/exercises",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
                 "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"files\": []\n}"
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "files",
+                      "type": "file",
+                      "src": "fixtures/task.pdf"
+                    }
+                  ]
                 }
               },
               "event": [
@@ -2822,16 +3286,47 @@
               "request": {
                 "method": "POST",
                 "url": "{{baseUrl}}/api/v1/admin/users",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
                 "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"full_name\": \"Test Mentor {{runId}}\",\n  \"phone\": \"{{mentorPhone}}\",\n  \"password\": \"{{mentorPassword}}\",\n  \"role\": \"mentor\",\n  \"job\": \"Frontend developer\",\n  \"experience\": 5\n}"
-                }
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "full_name",
+                      "value": "Test Mentor {{runId}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "phone",
+                      "value": "{{mentorPhone}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "password",
+                      "value": "{{mentorPassword}}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "role",
+                      "value": "mentor",
+                      "type": "text"
+                    },
+                    {
+                      "key": "job",
+                      "value": "Frontend developer",
+                      "type": "text"
+                    },
+                    {
+                      "key": "experience",
+                      "value": "5",
+                      "type": "text"
+                    },
+                    {
+                      "key": "profile_img",
+                      "type": "file",
+                      "src": "fixtures/avatar.png"
+                    }
+                  ]
+                },
+                "description": "form-data: text fields plus files. In the Postman app the files come from fixtures/ (Settings → General → Working directory = the repo's postman/ folder). Text fields like experience arrive as text (\"5\") and are turned into numbers."
               },
               "event": [
                 {
@@ -2841,7 +3336,8 @@
                     "exec": [
                       "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
                       "pm.test(\"Mentor with a profile\", () => { const { user } = pm.response.json(); pm.expect(user.role).to.eql(\"mentor\"); pm.expect(user.experience).to.eql(5); });",
-                      "pm.collectionVariables.set(\"mentorId\", pm.response.json().user.id);"
+                      "pm.collectionVariables.set(\"mentorId\", pm.response.json().user.id);",
+                      "pm.test(\"Photo was uploaded\", () => pm.expect(pm.response.json().user.profile_img).to.match(/^\\/uploads\\/avatars\\//));"
                     ]
                   }
                 }
@@ -4206,6 +4702,14 @@
     },
     {
       "key": "mentorSectionId",
+      "value": ""
+    },
+    {
+      "key": "bannerPath",
+      "value": ""
+    },
+    {
+      "key": "oldBannerPath",
       "value": ""
     }
   ]

@@ -36,7 +36,6 @@ export async function findByCourse(courseId: number) {
   return rows;
 }
 
-// One section with its lessons (for the course content tree).
 export async function findById(id: number) {
   const [sectionResult, lessonsResult] = await Promise.all([
     pool.query<Section>(`${SELECT_SECTION} WHERE s.id = $1`, [id]),
@@ -51,7 +50,6 @@ export async function findById(id: number) {
   return { ...section, lessons: lessonsResult.rows };
 }
 
-// Throws FOREIGN_KEY_VIOLATION when the course doesn't exist.
 export async function insert(courseId: number, input: CreateSectionInput) {
   const { rows } = await pool.query<{ id: number }>(
     `INSERT INTO sections (course_id, title, position)
@@ -73,7 +71,6 @@ export async function update(id: number, changes: UpdateSectionInput) {
   return findById(id);
 }
 
-// Its lessons, materials, exams... go with it (ON DELETE CASCADE).
 export async function remove(id: number) {
   const { rowCount } = await pool.query("DELETE FROM sections WHERE id = $1", [
     id,

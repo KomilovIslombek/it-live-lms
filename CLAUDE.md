@@ -183,6 +183,25 @@ Vite, some Tailwind and shadcn. Docker: theory from videos only.
   **5433**, maintenance database `it_live_lms`, user `lms`, and the
   password from the root `.env` (the user types it). Port 5432 is the
   separate local Postgres.
+- **No comments in the code** (user's decision, 2026-11-24): all 431 were
+  removed from `server/src`. Don't add new ones; explanations go into
+  `docs/how-it-works.md` (Russian). TypeScript here is 7.x (Go-based) and has
+  no JS API, so for code transforms use Prettier's parser:
+  `require("prettier").__debug.parse(text, { parser: "typescript" })` gives
+  `ast.comments` with exact ranges.
+- File uploads: multer 2.5 in `utils/upload.ts` (`uploadCourseMedia`,
+  `uploadLessonVideo`, `uploadAttachments`, `uploadProfileImage`), files in
+  `server/uploads/` (gitignored, served at `/uploads`, Vite proxies it).
+  In content routes the guard must run BEFORE the upload middleware. Form
+  fields arrive as strings: numbers/booleans use `formNumber` /
+  `formBoolean` from `schemas/common.schema.ts`, never plain
+  `z.number()`. Deletes collect file paths first
+  (`services/stored-files.service.ts`) and remove them after the DB delete.
+- Postman uploads use `postman/fixtures/` with `src: "fixtures/x"`; the CLI
+  needs `--working-dir postman`, the app needs Settings → General → Working
+  directory = `postman/`. The repo collection carries the cloud
+  collection's `_postman_id`, so Import → Replace updates it in place;
+  that is how the cloud copy is synced now (too big for `putCollection`).
 - Prettier runs from the repo root (`npm run format`, `format:check`).
   Run it on any file Claude writes before handing it over.
 - Server errors: use `logError(context, err)` from `src/utils/logger.ts`

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { uploadProfileImage } from "../utils/upload.js";
 import {
   createUser,
   deleteUser,
@@ -7,13 +8,12 @@ import {
   updateUser,
 } from "../controllers/user.controller.js";
 
-// Mounted inside the admin router at /users (admin only).
 const router = Router();
 
 router.get("/", listUsers);
 router.get("/:id", getUser);
-router.post("/", createUser);
-router.patch("/:id", updateUser);
+router.post("/", uploadProfileImage, createUser);
+router.patch("/:id", uploadProfileImage, updateUser);
 router.delete("/:id", deleteUser);
 
 export default router;

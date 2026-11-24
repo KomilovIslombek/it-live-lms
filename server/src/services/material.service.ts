@@ -24,11 +24,6 @@ export interface Material {
   updated_at: Date;
 }
 
-// Each material with its files as a JSON array, in one query:
-// json_agg collects the file rows of one material into [{...}, {...}].
-// FILTER drops the single all-NULL row that LEFT JOIN gives a material
-// without files, and COALESCE turns "no files" into [] instead of null.
-// https://www.postgresql.org/docs/current/functions-aggregate.html
 const SELECT_MATERIALS = `
   SELECT m.id, m.lesson_id, m.description,
     COALESCE(
@@ -58,7 +53,6 @@ export async function findById(id: number) {
   return rows[0] ?? null;
 }
 
-// Uses the transaction's client, not the pool (see withTransaction).
 async function insertFiles(
   client: PoolClient,
   materialId: number,
@@ -79,8 +73,6 @@ async function insertFiles(
   }
 }
 
-// The material and its files are saved together or not at all.
-// Throws FOREIGN_KEY_VIOLATION when the lesson doesn't exist.
 export async function insert(lessonId: number, input: CreateMaterialInput) {
   const id = await withTransaction(async (client) => {
     const { rows } = await client.query<{ id: number }>(
@@ -96,12 +88,8 @@ export async function insert(lessonId: number, input: CreateMaterialInput) {
   return findById(id);
 }
 
-// Returns null when there is no material with this id.
-// `files`, when sent, replaces the whole list of files.
 export async function update(id: number, changes: UpdateMaterialInput) {
   const found = await withTransaction(async (client) => {
-    // Always "touch" the row: it tells us whether it exists, and
-    // updated_at changes even when only the files change.
     const { rows } = await client.query<{ id: number }>(
       `UPDATE materials SET description = COALESCE($1, description)
         WHERE id = $2 RETURNING id`,
@@ -121,7 +109,6 @@ export async function update(id: number, changes: UpdateMaterialInput) {
   return findById(id);
 }
 
-// Its files go with it (ON DELETE CASCADE).
 export async function remove(id: number) {
   const { rowCount } = await pool.query("DELETE FROM materials WHERE id = $1", [
     id,

@@ -19,7 +19,6 @@ export interface Lesson {
   updated_at: Date;
 }
 
-// course_id comes from the section, so the admin screen can link back.
 const SELECT_LESSON = `
   SELECT l.id, l.section_id, s.course_id, l.title, l.description,
     l.video_url, l.position,
@@ -36,7 +35,6 @@ export async function findBySection(sectionId: number) {
   return rows;
 }
 
-// One lesson with its materials and their files.
 export async function findById(id: number) {
   const { rows } = await pool.query<Lesson>(
     `${SELECT_LESSON} WHERE l.id = $1`,
@@ -47,7 +45,6 @@ export async function findById(id: number) {
   return { ...lesson, materials: await findMaterialsByLesson(id) };
 }
 
-// Throws FOREIGN_KEY_VIOLATION when the section doesn't exist.
 export async function insert(sectionId: number, input: CreateLessonInput) {
   const { rows } = await pool.query<{ id: number }>(
     `INSERT INTO lessons (section_id, title, description, video_url, position)
@@ -75,7 +72,6 @@ export async function update(id: number, changes: UpdateLessonInput) {
   return findById(id);
 }
 
-// Its materials, files, exercises, exams and progress go with it (CASCADE).
 export async function remove(id: number) {
   const { rowCount } = await pool.query("DELETE FROM lessons WHERE id = $1", [
     id,
