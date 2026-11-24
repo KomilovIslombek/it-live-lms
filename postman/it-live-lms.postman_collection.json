@@ -357,81 +357,86 @@
       "description": "Admin-only routes (/api/v1/admin/...). Every request here needs the admin's cookie, so the folder starts with a login. The test data it creates is deleted again in Cleanup.",
       "item": [
         {
-          "name": "Login as admin",
-          "request": {
-            "method": "POST",
-            "url": "{{baseUrl}}/api/v1/auth/login",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"phone\": \"{{adminPhone}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
-            },
-            "description": "The Auth folder ends with Logout, so log in again. Also picks a runId (the current time) so the test data has unique names on every run, and a test student's phone and password from it."
-          },
-          "event": [
+          "name": "1. Login and stats",
+          "item": [
             {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const runId = String(Date.now());",
-                  "pm.collectionVariables.set(\"runId\", runId);",
-                  "pm.collectionVariables.set(\"studentPhone\", \"+998\" + runId.slice(-9));",
-                  "pm.collectionVariables.set(\"studentPassword\", \"test-student-\" + runId);"
-                ]
-              }
+              "name": "Login as admin",
+              "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/v1/auth/login",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"{{adminPhone}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+                },
+                "description": "The Auth folder ends with Logout, so log in again. Also picks a runId (the current time) so the test data has unique names on every run, and a test student's phone and password from it."
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const runId = String(Date.now());",
+                      "pm.collectionVariables.set(\"runId\", runId);",
+                      "pm.collectionVariables.set(\"studentPhone\", \"+998\" + runId.slice(-9));",
+                      "pm.collectionVariables.set(\"studentPassword\", \"test-student-\" + runId);"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "const { user } = pm.response.json();",
+                      "pm.test(\"Logged in as admin\", () => pm.expect(user.role).to.eql(\"admin\"));",
+                      "pm.collectionVariables.set(\"adminId\", user.id);"
+                    ]
+                  }
+                }
+              ]
             },
             {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
-                  "const { user } = pm.response.json();",
-                  "pm.test(\"Logged in as admin\", () => pm.expect(user.role).to.eql(\"admin\"));",
-                  "pm.collectionVariables.set(\"adminId\", user.id);"
-                ]
-              }
+              "name": "Dashboard stats",
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/stats",
+                "description": "Counts for the cards on the admin dashboard. Money is a string (exact NUMERIC)."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                      "const { stats } = pm.response.json();",
+                      "pm.test(\"Has all the cards\", () => {",
+                      "  pm.expect(stats.users).to.include.keys(\"total\", \"active\", \"by_role\");",
+                      "  pm.expect(stats.users.by_role).to.include.keys(\"admin\", \"mentor\", \"assistant\", \"student\");",
+                      "  pm.expect(stats.courses).to.include.keys(\"total\", \"active\");",
+                      "  pm.expect(stats).to.include.keys(\"categories\", \"enrollments\", \"payments\");",
+                      "});",
+                      "pm.test(\"Counts are numbers, money is a string\", () => {",
+                      "  pm.expect(stats.users.total).to.be.a(\"number\");",
+                      "  pm.expect(stats.payments.revenue).to.be.a(\"string\");",
+                      "});"
+                    ]
+                  }
+                }
+              ]
             }
           ]
         },
         {
-          "name": "Dashboard stats",
-          "request": {
-            "method": "GET",
-            "url": "{{baseUrl}}/api/v1/admin/stats",
-            "description": "Counts for the cards on the admin dashboard. Money is a string (exact NUMERIC)."
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
-                  "const { stats } = pm.response.json();",
-                  "pm.test(\"Has all the cards\", () => {",
-                  "  pm.expect(stats.users).to.include.keys(\"total\", \"active\", \"by_role\");",
-                  "  pm.expect(stats.users.by_role).to.include.keys(\"admin\", \"mentor\", \"assistant\", \"student\");",
-                  "  pm.expect(stats.courses).to.include.keys(\"total\", \"active\");",
-                  "  pm.expect(stats).to.include.keys(\"categories\", \"enrollments\", \"payments\");",
-                  "});",
-                  "pm.test(\"Counts are numbers, money is a string\", () => {",
-                  "  pm.expect(stats.users.total).to.be.a(\"number\");",
-                  "  pm.expect(stats.payments.revenue).to.be.a(\"string\");",
-                  "});"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "Users",
+          "name": "2. Users",
           "item": [
             {
               "name": "List users",
@@ -1043,7 +1048,7 @@
           ]
         },
         {
-          "name": "Categories",
+          "name": "3. Categories",
           "item": [
             {
               "name": "Create category",
@@ -1322,7 +1327,7 @@
           ]
         },
         {
-          "name": "Levels",
+          "name": "4. Levels",
           "item": [
             {
               "name": "Create level",
@@ -1432,7 +1437,7 @@
           ]
         },
         {
-          "name": "Courses",
+          "name": "5. Courses",
           "item": [
             {
               "name": "Create course",
@@ -2008,7 +2013,7 @@
           ]
         },
         {
-          "name": "Course content",
+          "name": "6. Course content",
           "description": "Sections → lessons → materials of the test course. List and create go under the parent, the rest by the item's own id.",
           "item": [
             {
@@ -2500,7 +2505,7 @@
           ]
         },
         {
-          "name": "Cleanup",
+          "name": "7. Cleanup",
           "item": [
             {
               "name": "Delete the test student",
@@ -2628,27 +2633,27 @@
                   }
                 }
               ]
-            }
-          ]
-        },
-        {
-          "name": "Admin route without a cookie → 401",
-          "protocolProfileBehavior": {
-            "disableCookies": true
-          },
-          "request": {
-            "method": "GET",
-            "url": "{{baseUrl}}/api/v1/admin/categories"
-          },
-          "event": [
+            },
             {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"Status is 401\", () => pm.response.to.have.status(401));"
-                ]
-              }
+              "name": "Admin route without a cookie → 401",
+              "protocolProfileBehavior": {
+                "disableCookies": true
+              },
+              "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/v1/admin/categories"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status is 401\", () => pm.response.to.have.status(401));"
+                    ]
+                  }
+                }
+              ]
             }
           ]
         }

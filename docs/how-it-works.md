@@ -575,21 +575,21 @@ pgAdmin → `it_live_lms` → Tables: 19 таблиц. Скажи: «Схема 
 **Admin** по порядку и нажимай **Send**. Порядок важен: каждый
 запоминает id для следующих.
 
-| Запрос                                                                                     | Что сказать                                                            |
-| ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| Auth → **Login**                                                                           | Вход по телефону. Токен JWT в httpOnly cookie, JavaScript его не видит |
-| Auth → **Me without a cookie → 401**                                                       | Без входа не пускает                                                   |
-| Admin → **Login as admin**                                                                 | Снова вход (папка Auth кончается выходом)                              |
-| **Dashboard stats**                                                                        | Числа для карточек дашборда, одним SQL-запросом                        |
-| Users → **List users**                                                                     | Поиск, фильтр по роли и статусу, пагинация, `total`                    |
-| Users → **Create student**                                                                 | Пароль хранится как bcrypt-хэш, в ответе его нет                       |
-| Users → **Create user with a taken phone → 409**                                           | Телефон уникален, база не даст дубль                                   |
-| Users → **Log in as the student**, затем **Student opens the admin panel → 403**           | Роли работают: студент в админку не попадает                           |
-| Users → **Log in as admin again**                                                          | Возвращаемся админом                                                   |
-| Categories → **Create category**, Levels → **Create level**, Courses → **Create course**   | Каталог. `slug` делается из названия                                   |
-| Courses → **List courses with filters**                                                    | Поиск + фильтры + страницы                                             |
-| Course content → **Create section**, **Create lesson**, **Create material with two files** | Дерево курса. Материал и файлы сохраняются одной транзакцией           |
-| Courses → **Delete a category that has courses → 409**                                     | База защищает данные (RESTRICT)                                        |
+| Запрос                                                                                            | Что сказать                                                            |
+| ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Auth → **Login**                                                                                  | Вход по телефону. Токен JWT в httpOnly cookie, JavaScript его не видит |
+| Auth → **Me without a cookie → 401**                                                              | Без входа не пускает                                                   |
+| Admin → 1. Login and stats → **Login as admin**                                                   | Снова вход (папка Auth кончается выходом)                              |
+| 1. Login and stats → **Dashboard stats**                                                          | Числа для карточек дашборда, одним SQL-запросом                        |
+| 2. Users → **List users**                                                                         | Поиск, фильтр по роли и статусу, пагинация, `total`                    |
+| 2. Users → **Create student**                                                                     | Пароль хранится как bcrypt-хэш, в ответе его нет                       |
+| 2. Users → **Create user with a taken phone → 409**                                               | Телефон уникален, база не даст дубль                                   |
+| 2. Users → **Log in as the student**, затем **Student opens the admin panel → 403**               | Роли работают: студент в админку не попадает                           |
+| 2. Users → **Log in as admin again**                                                              | Возвращаемся админом                                                   |
+| 3. Categories → **Create category**, 4. Levels → **Create level**, 5. Courses → **Create course** | Каталог. `slug` делается из названия                                   |
+| 5. Courses → **List courses with filters**                                                        | Поиск + фильтры + страницы                                             |
+| 6. Course content → **Create section**, **Create lesson**, **Create material with two files**     | Дерево курса. Материал и файлы сохраняются одной транзакцией           |
+| 5. Courses → **Delete a category that has courses → 409**                                         | База защищает данные (RESTRICT)                                        |
 
 **4б. Три роли (3–4 минуты).** Папка **Mentor and student**, тоже по
 порядку, **Send** на каждый:
@@ -613,7 +613,7 @@ pgAdmin → `it_live_lms` → Tables: 19 таблиц. Скажи: «Схема 
 `materials`) → правой кнопкой **View/Edit Data → All Rows**: это те
 самые строки, которые создал Postman.
 
-**6. Уборка.** Отправь запросы из папки **Cleanup** по порядку: тестовые
+**6. Уборка.** Отправь запросы из папки **Admin → 7. Cleanup** по порядку: тестовые
 данные удалятся. Можно показать, что после **Delete section** урок тоже
 пропал (каскадное удаление).
 

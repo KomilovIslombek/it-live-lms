@@ -123,6 +123,14 @@ a scratch copy: **85 requests, 167 assertions, 0 failed, run twice, no
   profile photo). Whole collection on a scratch copy: **166 requests, 306
   assertions, 0 failed, twice, uploads folder empty afterwards**; by hand
   a 6 MB photo → 400 "File too large".
+- **First full run in the Postman app on the real server (2026-11-24): 166
+  requests, 306 assertions, 0 failed**, DB and uploads clean afterwards.
+  Before that the app run failed with 401s: the app runs subfolders before
+  loose requests, so Admin was regrouped into numbered subfolders. The
+  user's workspace had been linked to `postman/fixtures` (Local View);
+  Claude disconnected it, re-imported the file (Replace) and set Working
+  directory = repo `postman/`. A "Test Student 1" (id 4, made by the user
+  at 18:34) is still in the real DB.
 - **Comments removed from all server code** (user asked, 2026-11-24).
 - The user said "уберу лишний API" then "оставь, не укорачивай": the
   collection keeps every request.

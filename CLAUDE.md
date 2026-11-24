@@ -202,6 +202,16 @@ Vite, some Tailwind and shadcn. Docker: theory from videos only.
   directory = `postman/`. The repo collection carries the cloud
   collection's `_postman_id`, so Import → Replace updates it in place;
   that is how the cloud copy is synced now (too big for `putCollection`).
+- **The Postman app runs a folder's subfolders BEFORE its loose requests**
+  (the CLI keeps file order). A folder must hold only subfolders or only
+  requests, or a login request placed before subfolders runs last and
+  everything gets 401 (happened 2026-11-24 in the app, not in the CLI).
+  Admin is split into numbered subfolders `1. Login and stats` … `7. Cleanup`.
+- The user once linked the Postman workspace (Local View, "Open folder")
+  to `postman/fixtures`; Claude disconnected it (workspace menu → Disconnect)
+  and deleted the empty scaffolding Postman wrote there. "Working directory"
+  (Settings → General) is a different thing: it is set to the repo's
+  `postman/` folder for the upload files.
 - Prettier runs from the repo root (`npm run format`, `format:check`).
   Run it on any file Claude writes before handing it over.
 - Server errors: use `logError(context, err)` from `src/utils/logger.ts`

@@ -9,3 +9,5 @@ uploads/
 # Files the Postman app writes when it links this folder as a local workspace
 postman/postman/
 postman/.postman/
+postman/fixtures/.postman/
+postman/fixtures/postman/
