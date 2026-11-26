@@ -4,9 +4,12 @@ A learning management system for an online IT school. Admins build
 courses (sections → lessons → materials, assignments and exams), mentors
 teach and grade, and students learn and track their progress.
 
-> **Status: backend done for all three roles, frontend next.** Login, the
-> admin, mentor and student APIs work and are covered by Postman tests. The React screens come next. See
-> [What's built](#whats-built) below.
+> **Status: working MVP.** The API for all three roles is done and covered
+> by Postman tests, and the React app has the login, the admin dashboard
+> (stats, users, courses, categories and levels), the mentor's courses and
+> the student's courses with progress. See [What's built](#whats-built).
+
+![Admin dashboard](docs/screenshots/admin-dashboard.png)
 
 ## Roles
 
@@ -22,14 +25,23 @@ teach and grade, and students learn and track their progress.
 - **Language:** TypeScript (server and client)
 - **Database:** PostgreSQL 18, run with Docker Compose
 - **Backend:** Node.js 24, Express 5
-- **Frontend:** React 19, Vite 8
-- **Tooling:** ESLint, Prettier
-- **Planned:** Tailwind CSS and shadcn/ui, deployment to a Linux server
+- **Frontend:** React 19, Vite 8, React Router, TanStack Query,
+  react-hook-form + zod, Tailwind CSS 4, shadcn/ui (Radix), lucide icons
+- **Tooling:** ESLint, Prettier, concurrently
+- **Planned:** deployment to a Linux server
 
 ## Project structure
 
 ```
 client/                  React app (Vite). Calls the API through /api
+  src/router.tsx         pages and which role may open them
+  src/lib/api.ts         fetch wrapper: JSON or form-data in, ApiError out
+  src/features/auth/     login page, who-am-I, role guard
+  src/features/admin/    dashboard, users, courses, categories and levels
+  src/features/mentor/   the mentor's courses
+  src/features/student/  the student's courses, lessons, progress
+  src/components/        app shell (sidebar), loading/empty/error states
+  src/components/ui/     shadcn/ui components (generated)
 server/                  Express API
   src/app.ts             middleware and routes
   src/routes/            URL → controller
@@ -43,6 +55,7 @@ server/                  Express API
   uploads/               uploaded files, served at /uploads (not in git)
 docs/database/           database schema (source of truth)
 docs/how-it-works.md     how the project works, in Russian
+docs/screenshots/        screenshots of the app
 postman/                 Postman collection, environment, fixtures/ (test files)
 docker-compose.yml       PostgreSQL for local development
 ```
@@ -55,21 +68,67 @@ Requirements: Node.js 24+, Docker Desktop.
 # 1. Database: copy .env.example to .env, fill in the values, then
 docker compose up -d
 
-# 2. API (http://localhost:4000): copy server/.env.example to server/.env
-#    and fill it in, then
-cd server
+# 2. Install (once): root, server and client
 npm install
-npm run db:seed   # roles and the first admin
-npm run dev
+npm install --prefix server
+npm install --prefix client
 
-# 3. Client (http://localhost:5173), in a second terminal
-cd client
-npm install
+# 3. API settings: copy server/.env.example to server/.env and fill it in,
+#    then create the roles and the first admin
+npm --prefix server run db:seed
+
+# 4. API (http://localhost:4000) and client (http://localhost:5173) together
 npm run dev
 ```
 
-In development, Vite forwards every request starting with `/api` to the
-Express server, so the browser only talks to one address.
+Open http://localhost:5173 and sign in with `SEED_ADMIN_PHONE` /
+`SEED_ADMIN_PASSWORD` from `server/.env`. `npm run dev:server` and
+`npm run dev:client` start one side only.
+
+In development, Vite forwards every request starting with `/api` (and the
+uploaded files under `/uploads`) to the Express server, so the browser
+only talks to one address and the login cookie just works. To point the
+client at an API on another port: `API_PROXY_TARGET=http://localhost:4100
+npm run dev:client`.
+
+## Screenshots
+
+| Sign in                                          | Users                                                  |
+| ------------------------------------------------ | ------------------------------------------------------ |
+| ![Sign in](docs/screenshots/login.png)           | ![Users](docs/screenshots/admin-users.png)             |
+| **Courses**                                      | **Mentor: my courses**                                 |
+| ![Courses](docs/screenshots/admin-courses.png)   | ![Mentor](docs/screenshots/mentor-courses.png)         |
+| **Student: my courses**                          | **Student: a course with progress**                    |
+| ![Student](docs/screenshots/student-courses.png) | ![Student course](docs/screenshots/student-course.png) |
+
+The data in the screenshots was created through the app's own API on a
+local test database.
+
+## The client
+
+| Page                   | Role     | What it does                                                                                                                                 |
+| ---------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/login`               | everyone | Phone + password, field errors, wrong-password and server-down messages                                                                      |
+| `/admin`               | admin    | Stats cards and users by role from `GET /admin/stats`, newest users and courses                                                              |
+| `/admin/users`         | admin    | Table with search (name or phone), role filter and pagination; add a user; activate/deactivate; delete with confirmation                     |
+| `/admin/courses`       | admin    | Course cards with search, category and level filters, pagination; create and edit with a banner upload (form-data); delete with confirmation |
+| `/admin/catalog`       | admin    | Add and delete categories and levels (a course needs both)                                                                                   |
+| `/mentor`              | mentor   | My courses with section, lesson and student counts                                                                                           |
+| `/student`             | student  | My courses with progress bars                                                                                                                |
+| `/student/courses/:id` | student  | Sections and lessons; mark a lesson as done or undo it, progress updates                                                                     |
+
+- **Who may open what.** `RequireRole` asks `GET /auth/me` who is logged in.
+  Logged out → `/login` (and back to the page after signing in); wrong
+  role → that role's own home. The server still checks every request;
+  the guard only decides what to show.
+- **Session expiry.** Any API answer with 401 clears the cached user, so the
+  app goes back to the login page by itself.
+- **Server state** lives in TanStack Query (cache, loading and error
+  states, refetch after a change); forms use react-hook-form with zod
+  schemas that mirror the server's, and the server's own 400/409 field
+  errors are shown under the matching field.
+- Every list has a loading skeleton, an empty state and an error state
+  with "Try again".
 
 ## API
 
@@ -250,7 +309,12 @@ changes from `docs/database/migrations/` (each file says how to run it):
 - [x] Student API: my courses with progress, lessons, marking lessons done, exams scored on the server, my results
 - [x] Mentor API: my courses, the same content tools limited to them, students with progress, exam results
 - [x] Admin: exercises, exams and questions; linking mentors and enrolling students
-- [ ] Grading homework (needs a submissions table), the React frontend, deploy
+- [x] React client: login with a role guard, admin dashboard (stats,
+      users, courses, categories and levels), mentor courses, student
+      courses with lesson progress
+- [ ] Client screens for course content (sections, lessons, materials,
+      exams), linking mentors and enrolling students, editing users
+- [ ] Grading homework (needs a submissions table), deploy
 - [ ] Payments, comments, certificates, landing page
 
 ## Credits

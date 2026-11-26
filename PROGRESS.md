@@ -1,6 +1,75 @@
 # Progress
 
-Last updated: 2026-11-24
+Last updated: 2026-11-26
+
+## Current step (2026-11-26): React client MVP, done
+
+The user asked on 2026-11-26 to finish the project quickly so it can be
+shown on Upwork, Fiverr, Contra, Behance and to employers ("you do it":
+Claude writes the code and explains it in `docs/how-it-works.md` §12).
+
+**Built** (`client/`, not pushed yet):
+
+- Stack from the Decisions list, now confirmed: React Router 8, TanStack
+  Query 5, react-hook-form 7 + zod 4 (`@hookform/resolvers`), Tailwind 4
+  (`@tailwindcss/vite`), shadcn/ui 4 (`radix-nova` preset, Radix, lucide
+  icons, Geist font, sonner toasts). Root `npm run dev` starts server +
+  client with `concurrently`.
+- Login (phone + password) and `RequireRole` guard via `/auth/me`; any 401
+  clears the cached user → back to login. Roles route to `/admin`,
+  `/mentor`, `/student`; assistant gets an honest "no panel yet" page.
+- Admin: dashboard (stats cards, users by role, newest users and
+  courses), users (search, role filter, pagination, add user,
+  activate/deactivate, delete with confirm), courses (cards, search,
+  category/level filters, pagination, create/edit with banner upload as
+  form-data, delete), categories & levels (add, delete).
+- Mentor: my courses with counts. Student: my courses with progress, a
+  course page with sections/lessons and mark done / undo.
+- Loading skeletons, empty states and error states with "Try again"
+  everywhere; server 400/409 field errors shown under the field.
+- Checked in the browser against a scratch copy of the server and a
+  throwaway Postgres cluster (data created through the API): every page
+  above, wrong password, validation, 409 taken phone, pagination, role
+  redirect (student → `/admin` goes to `/student`), 404, server down →
+  error state → back after "Try again", mobile width. `npm run lint` and
+  `npm run build` are clean.
+- Screenshots in `docs/screenshots/` (1440×900, headless Edge via CDP),
+  used in the README.
+
+**Not built in the client yet:** course content screens (sections,
+lessons, materials, exercises, exams), linking mentors / enrolling
+students, editing users, revenue card (no payments yet), exams for
+students.
+
+**Next:** the user runs `npm run dev` on their own DB and looks through
+it; then push (ask first) and the first deploy (roadmap step 5). A demo
+data seed script would make a fresh DB look like the screenshots: not
+written yet, ask the user.
+
+### Client notes for the next session
+
+- `client/src/components/ui/` is shadcn-generated: ESLint ignores it,
+  Prettier formats it. Add components with
+  `npx shadcn@latest add <name> -y` from `client/`. Its `cn` helper comes
+  from shadcn's own npm package `cn` (checked: maintainer shadcn), not
+  clsx + tailwind-merge.
+- `npx shadcn init` needs `-t vite -b radix -p nova`, otherwise it waits
+  on an interactive preset prompt.
+- TypeScript 6 in the client: `baseUrl` is deprecated (TS5101), so the
+  `@/*` alias is `paths` only (`tsconfig.json` and `tsconfig.app.json`)
+  plus `resolve.alias` in `vite.config.ts`.
+- The React Compiler lint rules reject `setState` inside an effect and
+  RHF `watch()`; use event handlers / `useWatch` / `useSyncExternalStore`
+  (see `hooks/use-mobile.ts`). No `eslint-disable` comments (no-comments
+  rule).
+- `API_PROXY_TARGET` env var points the Vite proxy elsewhere (default
+  `http://localhost:4000`); used to test against a scratch server on 4100.
+- Vite's dev proxy answers 500 with no JSON when the API is down;
+  `api()` turns any non-JSON 5xx into "The server isn't responding".
+- First page load on the Vite dev server takes several seconds (dependency
+  pre-bundling); screenshots need a warm-up load.
+- The project `CLAUDE.md` is deleted in the working tree (not by Claude,
+  not committed). Asked the user before touching it.
 
 ## Deadline (set 2026-11-21)
 
@@ -135,10 +204,11 @@ a scratch copy: **85 requests, 167 assertions, 0 failed, run twice, no
 - The user said "уберу лишний API" then "оставь, не укорачивай": the
   collection keeps every request.
 - **Not done:** homework submissions and grading (no table yet),
-  payments (user: not now), assistants, certificates, the frontend.
+  payments (user: not now), assistants, certificates (the client came
+  on 2026-11-26).
 
-**Not done:** payments, homework grading, real file uploads, the React
-frontend, first deploy.
+**Not done:** payments, homework grading, the client screens for course
+content, first deploy.
 
 **Next:** the user re-imports the Postman collection, runs it against
 their real server, and reads §5.1–5.4 and §11 before the exam
@@ -257,11 +327,11 @@ Status: done / in progress / next / later
 2. [done] Project setup: git + GitHub, Docker Postgres, Express +
    TypeScript server connected to the database, React + Vite + TypeScript
    client connected through a proxy, Prettier
-3. [done, backend] Login and roles (admin, mentor, assistant, student); the React login page moves after the exam
-4. [done 2026-11-23, exam 2026-11-24] Admin dashboard backend API (users, stats, courses, content)
+3. [done] Login and roles (admin, mentor, assistant, student); React login page and role guard done 2026-11-26
+4. [done] Admin dashboard: backend API 2026-11-23 (exam 2026-11-24), React screens 2026-11-26 (stats, users, courses, categories and levels)
 5. [next] **First deploy** to a VPS (moved here from step 2, see Decisions)
-6. [later] Admin manages courses → sections → lessons → materials
-7. [later] Student sees their courses and lessons, with progress
+6. [later] Admin manages courses → sections → lessons → materials (API done, screens next)
+7. [in progress] Student sees their courses and lessons, with progress (API done; client: courses, lessons list, mark done; lesson page and exams next)
 8. [later] Mentor side: assignments, exams, grading, results
 9. [later] Extras: dashboard stats, payments, comments, certificates,
    Excel export, landing page
@@ -312,10 +382,17 @@ Steps 1–7 are v1: a deployed project the user can show.
   reset-password action when we reach that screen.
 - No Notion build journal for this project (user decided 2026-10-24).
   Don't suggest it again unless they bring it up.
-- Rest of the proposed stack, to confirm when each part is reached: React
-  Router, TanStack Query and Table, react-hook-form + zod, Tailwind +
-  shadcn/ui, i18next; S3-compatible file storage; VPS with Nginx and
-  HTTPS.
+- **Client stack confirmed 2026-11-26:** React Router, TanStack Query,
+  react-hook-form + zod, Tailwind + shadcn/ui (Radix). TanStack Table not
+  needed yet (plain shadcn table). Still to confirm later: i18next,
+  S3-compatible file storage, VPS with Nginx and HTTPS.
+- **Client UI text in English** (2026-11-26, Claude's call for the
+  portfolio audience: Upwork and foreign clients; the Figma is in Uzbek).
+  i18next can add Uzbek later. Tell the user; change if they disagree.
+- No revenue card on the dashboard until payments exist (it would always
+  show 0). The stats API still returns revenue.
+- Client filters (search, role, page) live in component state, not the
+  URL.
 
 ## Open questions (the user will clarify)
 
@@ -342,6 +419,10 @@ Steps 1–7 are v1: a deployed project the user can show.
   ratings, notifications, course assistants.
 
 ## Done
+
+- 2026-11-26: React client MVP: login + role guard, admin dashboard,
+  users, courses, categories and levels, mentor and student courses,
+  root `npm run dev`, README screenshots, how-it-works §12.
 
 - 2026-10-24: Analyzed the Figma design and agreed on the roadmap.
 - 2026-10-24: Reviewed the user's first database diagram (15 tables);
