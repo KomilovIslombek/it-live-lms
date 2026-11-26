@@ -6,6 +6,9 @@
     "doc": "docs"
   },
   "scripts": {
+    "dev": "concurrently -k -n server,client -c blue,magenta \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
@@ -23,6 +26,7 @@
   "homepage": "https://github.com/KomilovIslombek/it-live-lms#readme",
   "private": true,
   "devDependencies": {
+    "concurrently": "^10.0.7",
     "prettier": "3.9.10"
   }
 }
