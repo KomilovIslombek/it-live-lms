@@ -1,0 +1,9 @@
+**/node_modules
+**/dist
+**/.env
+server/uploads
+server/logs
+.git
+postman
+docs
+cookies.txt

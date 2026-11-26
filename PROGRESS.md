@@ -41,10 +41,41 @@ lessons, materials, exercises, exams), linking mentors / enrolling
 students, editing users, revenue card (no payments yet), exams for
 students.
 
-**Next:** the user runs `npm run dev` on their own DB and looks through
-it; then push (ask first) and the first deploy (roadmap step 5). A demo
-data seed script would make a fresh DB look like the screenshots: not
-written yet, ask the user.
+Pushed 2026-11-26 (`86dab61..9a5e757`, user said "Yes, push").
+
+### Deploy prep (2026-11-26, user: "продолжай", deploy to subdomains or Netlify for now; a VPS with the Telegram bot comes later)
+
+- **Demo data:** `npm --prefix server run db:seed-demo`
+  (`src/scripts/seed-demo.ts`, banners in `server/demo/banners/`): 6
+  courses, 2 mentors, 1 assistant, 6 students, sections, lessons,
+  enrollments, progress. One transaction; skips if the demo phones exist;
+  password from `SEED_DEMO_PASSWORD`; phones `+998000000201` (mentor),
+  `+998000000301` (assistant), `+99800000040x` (students). Tested twice
+  on a fresh scratch DB (second run: "already there"). Not run on the
+  user's real DB.
+- **Production:** root `npm run build` / `npm start`; with
+  `NODE_ENV=production` Express serves `client/dist` with an
+  `index.html` fallback (one origin, no CORS). Tested on port 4100:
+  pages, deep links, assets, API 404 JSON, missing upload 404, login in
+  the browser.
+- **Dockerfile** (multi-stage, Node 24 Alpine, user `node`) +
+  `.dockerignore`; `db:seed:prod` / `db:seed-demo:prod` run the compiled
+  seeds inside the image. Tested 2026-11-26: image builds (274 MB), seeds
+  ran inside it against a throwaway Postgres container, health, pages,
+  login and banners from the uploads volume work; test containers,
+  network, volumes and image removed afterwards. Docker Desktop was
+  started for this (the user's `it-live-lms-db` came up with it).
+- **Hosting is the open question (ask the user):** Netlify only hosts
+  static files, so it can serve the client but not Express + PostgreSQL +
+  uploads. Options: (a) wait for the VPS (Docker image above + Postgres +
+  Nginx/HTTPS on a subdomain); (b) now: client on Netlify with a
+  `/api/*` + `/uploads/*` proxy rewrite to an API on a free host (Render,
+  Railway, Fly) with a free Postgres (Neon); free hosts lose uploaded
+  files on restart unless a disk/volume is added. Creating those accounts
+  is the user's step.
+
+**Next:** decide the hosting; then deploy, seed the demo data there, put
+the live link and demo logins in the README.
 
 ### Client notes for the next session
 
@@ -329,7 +360,7 @@ Status: done / in progress / next / later
    client connected through a proxy, Prettier
 3. [done] Login and roles (admin, mentor, assistant, student); React login page and role guard done 2026-11-26
 4. [done] Admin dashboard: backend API 2026-11-23 (exam 2026-11-24), React screens 2026-11-26 (stats, users, courses, categories and levels)
-5. [next] **First deploy** to a VPS (moved here from step 2, see Decisions)
+5. [next] **First deploy** (Dockerfile, production build and demo data ready 2026-11-26; hosting not chosen yet)
 6. [later] Admin manages courses → sections → lessons → materials (API done, screens next)
 7. [in progress] Student sees their courses and lessons, with progress (API done; client: courses, lessons list, mark done; lesson page and exams next)
 8. [later] Mentor side: assignments, exams, grading, results
@@ -419,6 +450,9 @@ Steps 1–7 are v1: a deployed project the user can show.
   ratings, notifications, course assistants.
 
 ## Done
+
+- 2026-11-26: demo-data seed, production build served by Express,
+  Dockerfile.
 
 - 2026-11-26: React client MVP: login + role guard, admin dashboard,
   users, courses, categories and levels, mentor and student courses,

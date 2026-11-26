@@ -43,6 +43,7 @@ client/                  React app (Vite). Calls the API through /api
   src/components/        app shell (sidebar), loading/empty/error states
   src/components/ui/     shadcn/ui components (generated)
 server/                  Express API
+  demo/banners/          banner images used by the demo-data seed
   src/app.ts             middleware and routes
   src/routes/            URL → controller
   src/controllers/       read the request, send the response
@@ -51,6 +52,7 @@ server/                  Express API
   src/middleware/        auth check, JSON errors
   src/utils/             JWT, error logger, file uploads (multer), SQL helpers
   src/scripts/seed.ts    roles and the first admin
+  src/scripts/seed-demo.ts  demo courses, users, lessons and progress
   logs/error.log         server errors (created on the first error, not in git)
   uploads/               uploaded files, served at /uploads (not in git)
 docs/database/           database schema (source of truth)
@@ -90,6 +92,45 @@ uploaded files under `/uploads`) to the Express server, so the browser
 only talks to one address and the login cookie just works. To point the
 client at an API on another port: `API_PROXY_TARGET=http://localhost:4100
 npm run dev:client`.
+
+### Demo data (optional)
+
+To fill an empty database with realistic content (6 courses with
+banners, 2 mentors, an assistant, 6 students, sections, lessons,
+enrollments and some progress), set `SEED_DEMO_PASSWORD` in
+`server/.env` and run:
+
+```bash
+npm --prefix server run db:seed-demo
+```
+
+It runs in one transaction and does nothing if the demo users already
+exist. The demo accounts all use `SEED_DEMO_PASSWORD`; their phones
+(`+998 00 …`, not a real operator code) are printed at the end, for
+example mentor `+998000000201` and student `+998000000401`.
+
+## Production build
+
+```bash
+npm run build                    # client → client/dist, server → server/dist
+NODE_ENV=production npm start    # one Node process on PORT
+```
+
+With `NODE_ENV=production` Express also serves `client/dist` and sends
+`index.html` for page URLs such as `/admin/users`, so the site, the API
+and `/uploads` share one address and the login cookie needs no CORS. The
+`Dockerfile` builds the same thing into one image (Node 24 Alpine, runs
+as the `node` user):
+
+```bash
+docker build -t it-live-lms .
+docker run -p 4000:4000 --env-file server/.env -e NODE_ENV=production   -v lms-uploads:/app/server/uploads it-live-lms
+```
+
+Inside the container, `DATABASE_URL` must point at a database the
+container can reach. Run the seeds there with `npm run db:seed:prod` and
+`npm run db:seed-demo:prod`. Uploads live on disk, so keep
+`/app/server/uploads` on a volume.
 
 ## Screenshots
 

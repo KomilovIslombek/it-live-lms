@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import express from "express";
 import pool from "./db.js";
 import authRoutes from "./routes/auth.routes.js";
@@ -37,6 +39,18 @@ app.use("/api/v1/mentor", mentorRoutes);
 app.use("/api/v1/student", studentRoutes);
 
 app.use("/api", notFound);
+
+const CLIENT_DIR = fileURLToPath(
+  new URL("../../client/dist/", import.meta.url),
+);
+if (process.env.NODE_ENV === "production" && existsSync(CLIENT_DIR)) {
+  app.use(express.static(CLIENT_DIR, { index: false }));
+  app.use((req, res, next) => {
+    if (req.method !== "GET" || req.path.startsWith("/uploads/")) return next();
+    return res.sendFile("index.html", { root: CLIENT_DIR });
+  });
+}
+
 app.use(errorHandler);
 
 export default app;

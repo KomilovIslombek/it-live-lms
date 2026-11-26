@@ -716,3 +716,34 @@ cd client
 npm run lint     # ESLint
 npm run build    # tsc (проверка типов) + сборка
 ```
+
+## 13. Демо-данные и сборка для сервера
+
+**Демо-данные** (`npm --prefix server run db:seed-demo`,
+`src/scripts/seed-demo.ts`): курсы, менторы, студенты, уроки и прогресс,
+чтобы пустая база выглядела как живая школа.
+
+- Всё в **одной транзакции** (`withTransaction`, раздел 5.4): упало на
+  середине — в базе ничего не осталось, а скопированные баннеры
+  удаляются.
+- **Повторный запуск безопасен**: если демо-пользователи уже есть,
+  скрипт ничего не делает. Категории и уровни с тем же slug не
+  дублируются (`ON CONFLICT (slug)`).
+- Пароль демо-аккаунтов берётся из `SEED_DEMO_PASSWORD` в `.env`, в
+  коде паролей нет. Телефоны `+998 00 …`: такого кода оператора нет,
+  поэтому это точно не чей-то настоящий номер.
+
+**Сборка для сервера.** `npm run build` собирает клиент (`client/dist`,
+обычные HTML/JS/CSS) и сервер (`tsc` → `server/dist`). При
+`NODE_ENV=production` Express сам раздаёт `client/dist`, а на любой
+адрес страницы (`/admin/users`) отдаёт `index.html`, дальше React
+Router показывает нужную страницу (так работает
+[SPA](https://developer.mozilla.org/en-US/docs/Glossary/SPA)).
+Поэтому сайт и API на **одном адресе**: cookie входа работает без
+[CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS).
+
+**Docker-образ** (`Dockerfile`, [multi-stage build](https://docs.docker.com/build/building/multi-stage/)):
+первый этап ставит все пакеты и собирает, второй берёт только
+результат и пакеты для работы (`--omit=dev`). Образ меньше, и в нём нет
+TypeScript и Vite. Работает от пользователя `node`, не root. Папку
+`uploads` подключаем как volume, иначе файлы пропадут при пересборке.
