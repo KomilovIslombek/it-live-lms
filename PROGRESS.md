@@ -92,10 +92,22 @@ empty Postgres 18 and after a restart:
   Claude can create the service and database. Otherwise: New →
   Blueprint in the Render dashboard.
 
-**Next:** push (ask), the user signs up on Render (GitHub login) and
-either connects the Render connector or creates the Blueprint; set
-`SEED_ADMIN_PHONE`, `SEED_ADMIN_PASSWORD`, `SEED_DEMO_PASSWORD`; check
-the live site; put the link and demo logins in the README.
+**Deployed 2026-11-27** (user: "да запуш … сделай сам", connected the
+Render connector). Pushed `340abcc`; Claude created the Blueprint
+`exs-dc4ncom1egvs73947he0` (workspace `tea-dc4n8v2jnfac73eocd1g`) and
+approved it: web service `it-live-lms-5csu` (`srv-dc4nd6ajnfac73eoqgug`,
+free, Frankfurt, auto-deploy on every push to `main`) and Postgres 18
+`it-live-lms-db-5csu` (`dpg-dc4ncrijnfac73eope50-a`, free). **Live:**
+https://it-live-lms-5csu.onrender.com: health ok, schema created by
+`setup-db`, pages, `/uploads/demo` banners. The three `SEED_*` values
+were left empty: Claude must not type passwords, so the start skipped
+the admin and the demo data.
+
+**Next:** the user sets `SEED_ADMIN_PHONE`, `SEED_ADMIN_PASSWORD` and
+`SEED_DEMO_PASSWORD` on the service's Environment page (Save → Render
+redeploys and the seeds run), then signs in. Then add the demo logins
+(phones `+998000000201` mentor, `+998000000401` student) to the README if
+the user wants the demo password public.
 
 ### Client notes for the next session
 

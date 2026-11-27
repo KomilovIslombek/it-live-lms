@@ -9,6 +9,9 @@ teach and grade, and students learn and track their progress.
 > (stats, users, courses, categories and levels), the mentor's courses and
 > the student's courses with progress. See [What's built](#whats-built).
 
+**Live demo:** https://it-live-lms-5csu.onrender.com (Render free plan:
+the first visit after a quiet spell takes about a minute to wake up).
+
 ![Admin dashboard](docs/screenshots/admin-dashboard.png)
 
 ## Roles
