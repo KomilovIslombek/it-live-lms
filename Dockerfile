@@ -15,9 +15,12 @@ COPY server/package.json server/package-lock.json server/
 RUN npm ci --omit=dev --prefix server
 COPY --from=build /app/server/dist server/dist
 COPY --from=build /app/client/dist client/dist
+COPY docs/database docs/database
 COPY server/demo server/demo
+COPY server/demo/banners server/uploads/demo
+COPY server/start.sh server/start.sh
 WORKDIR /app/server
-RUN mkdir -p uploads logs && chown -R node:node uploads logs
+RUN mkdir -p logs && chmod +x start.sh && chown -R node:node uploads logs
 USER node
 EXPOSE 4000
-CMD ["node", "dist/index.js"]
+CMD ["./start.sh"]

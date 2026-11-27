@@ -1,5 +1,5 @@
-import { randomUUID } from "node:crypto";
-import { copyFile, mkdir, unlink } from "node:fs/promises";
+import { constants } from "node:fs";
+import { copyFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import bcrypt from "bcryptjs";
@@ -174,138 +174,133 @@ if (!roleId.has("mentor") || !roleId.has("student")) {
   throw new Error("Roles are missing. Run npm run db:seed first");
 }
 
-const copied: string[] = [];
-const bannerPath = new Map<string, string>();
-await mkdir(path.join(UPLOAD_DIR, "banners"), { recursive: true });
+await mkdir(path.join(UPLOAD_DIR, "demo"), { recursive: true });
 for (const course of courses) {
-  const name = `${randomUUID()}.png`;
-  const target = path.join(UPLOAD_DIR, "banners", name);
-  await copyFile(path.join(BANNER_DIR, course.banner), target);
-  copied.push(target);
-  bannerPath.set(course.title, `/uploads/banners/${name}`);
-}
-
-try {
-  const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 12);
-
-  await withTransaction(async (client) => {
-    const categoryId = new Map<string, number>();
-    for (const title of categories) {
-      categoryId.set(
-        title,
-        await idOf(
-          client,
-          `INSERT INTO categories (title, slug) VALUES ($1, $2)
-            ON CONFLICT (slug) DO UPDATE SET title = categories.title
-            RETURNING id`,
-          [title, slug(title)],
-        ),
-      );
-    }
-
-    const levelId = new Map<string, number>();
-    for (const title of levels) {
-      levelId.set(
-        title,
-        await idOf(
-          client,
-          `INSERT INTO levels (title, slug) VALUES ($1, $2)
-            ON CONFLICT (slug) DO UPDATE SET title = levels.title
-            RETURNING id`,
-          [title, slug(title)],
-        ),
-      );
-    }
-
-    const userId = new Map<string, number>();
-    for (const person of people) {
-      userId.set(
-        person.name,
-        await idOf(
-          client,
-          `INSERT INTO users (role_id, full_name, phone, password_hash, job)
-            VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-          [
-            roleId.get(person.role),
-            person.name,
-            person.phone,
-            passwordHash,
-            "job" in person ? person.job : null,
-          ],
-        ),
-      );
-    }
-
-    for (const course of courses) {
-      const courseId = await idOf(
-        client,
-        `INSERT INTO courses (title, description, price, banner, category_id, level_id)
-          VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-        [
-          course.title,
-          `${course.title}: a hands-on course with real projects, code reviews and a final exam.`,
-          course.price,
-          bannerPath.get(course.title),
-          categoryId.get(course.category),
-          levelId.get(course.level),
-        ],
-      );
-
-      for (const mentor of course.mentors) {
-        await client.query(
-          "INSERT INTO course_mentors (course_id, user_id) VALUES ($1, $2)",
-          [courseId, userId.get(mentor)],
-        );
-      }
-      for (const student of course.students) {
-        await client.query(
-          "INSERT INTO user_courses (course_id, user_id) VALUES ($1, $2)",
-          [courseId, userId.get(student)],
-        );
-      }
-
-      const lessonIds: number[] = [];
-      for (const [
-        sectionIndex,
-        [sectionTitle, lessons],
-      ] of course.sections.entries()) {
-        const sectionId = await idOf(
-          client,
-          "INSERT INTO sections (course_id, title, position) VALUES ($1, $2, $3) RETURNING id",
-          [courseId, sectionTitle, sectionIndex],
-        );
-        for (const [lessonIndex, lessonTitle] of lessons.entries()) {
-          lessonIds.push(
-            await idOf(
-              client,
-              `INSERT INTO lessons (section_id, title, description, position)
-                VALUES ($1, $2, $3, $4) RETURNING id`,
-              [
-                sectionId,
-                lessonTitle,
-                `${lessonTitle}: notes, examples and a short task.`,
-                lessonIndex,
-              ],
-            ),
-          );
-        }
-      }
-
-      for (const student of course.students) {
-        const done = progress[`${student}|${course.title}`] ?? 0;
-        for (const lessonId of lessonIds.slice(0, done)) {
-          await client.query(
-            "INSERT INTO lesson_progress (user_id, lesson_id) VALUES ($1, $2)",
-            [userId.get(student), lessonId],
-          );
-        }
-      }
-    }
+  await copyFile(
+    path.join(BANNER_DIR, course.banner),
+    path.join(UPLOAD_DIR, "demo", course.banner),
+    constants.COPYFILE_EXCL,
+  ).catch((err: NodeJS.ErrnoException) => {
+    if (err.code !== "EEXIST") throw err;
   });
-} catch (err) {
-  await Promise.all(copied.map((file) => unlink(file).catch(() => {})));
-  throw err;
 }
+
+const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 12);
+
+await withTransaction(async (client) => {
+  const categoryId = new Map<string, number>();
+  for (const title of categories) {
+    categoryId.set(
+      title,
+      await idOf(
+        client,
+        `INSERT INTO categories (title, slug) VALUES ($1, $2)
+          ON CONFLICT (slug) DO UPDATE SET title = categories.title
+          RETURNING id`,
+        [title, slug(title)],
+      ),
+    );
+  }
+
+  const levelId = new Map<string, number>();
+  for (const title of levels) {
+    levelId.set(
+      title,
+      await idOf(
+        client,
+        `INSERT INTO levels (title, slug) VALUES ($1, $2)
+          ON CONFLICT (slug) DO UPDATE SET title = levels.title
+          RETURNING id`,
+        [title, slug(title)],
+      ),
+    );
+  }
+
+  const userId = new Map<string, number>();
+  for (const person of people) {
+    userId.set(
+      person.name,
+      await idOf(
+        client,
+        `INSERT INTO users (role_id, full_name, phone, password_hash, job)
+          VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+        [
+          roleId.get(person.role),
+          person.name,
+          person.phone,
+          passwordHash,
+          "job" in person ? person.job : null,
+        ],
+      ),
+    );
+  }
+
+  for (const course of courses) {
+    const courseId = await idOf(
+      client,
+      `INSERT INTO courses (title, description, price, banner, category_id, level_id)
+        VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [
+        course.title,
+        `${course.title}: a hands-on course with real projects, code reviews and a final exam.`,
+        course.price,
+        `/uploads/demo/${course.banner}`,
+        categoryId.get(course.category),
+        levelId.get(course.level),
+      ],
+    );
+
+    for (const mentor of course.mentors) {
+      await client.query(
+        "INSERT INTO course_mentors (course_id, user_id) VALUES ($1, $2)",
+        [courseId, userId.get(mentor)],
+      );
+    }
+    for (const student of course.students) {
+      await client.query(
+        "INSERT INTO user_courses (course_id, user_id) VALUES ($1, $2)",
+        [courseId, userId.get(student)],
+      );
+    }
+
+    const lessonIds: number[] = [];
+    for (const [
+      sectionIndex,
+      [sectionTitle, lessons],
+    ] of course.sections.entries()) {
+      const sectionId = await idOf(
+        client,
+        "INSERT INTO sections (course_id, title, position) VALUES ($1, $2, $3) RETURNING id",
+        [courseId, sectionTitle, sectionIndex],
+      );
+      for (const [lessonIndex, lessonTitle] of lessons.entries()) {
+        lessonIds.push(
+          await idOf(
+            client,
+            `INSERT INTO lessons (section_id, title, description, position)
+              VALUES ($1, $2, $3, $4) RETURNING id`,
+            [
+              sectionId,
+              lessonTitle,
+              `${lessonTitle}: notes, examples and a short task.`,
+              lessonIndex,
+            ],
+          ),
+        );
+      }
+    }
+
+    for (const student of course.students) {
+      const done = progress[`${student}|${course.title}`] ?? 0;
+      for (const lessonId of lessonIds.slice(0, done)) {
+        await client.query(
+          "INSERT INTO lesson_progress (user_id, lesson_id) VALUES ($1, $2)",
+          [userId.get(student), lessonId],
+        );
+      }
+    }
+  }
+});
 
 console.log(
   `Demo data created: ${courses.length} courses, ${people.length} users (password from SEED_DEMO_PASSWORD)`,

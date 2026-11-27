@@ -127,10 +127,30 @@ docker build -t it-live-lms .
 docker run -p 4000:4000 --env-file server/.env -e NODE_ENV=production   -v lms-uploads:/app/server/uploads it-live-lms
 ```
 
-Inside the container, `DATABASE_URL` must point at a database the
-container can reach. Run the seeds there with `npm run db:seed:prod` and
-`npm run db:seed-demo:prod`. Uploads live on disk, so keep
-`/app/server/uploads` on a volume.
+On start the container runs `server/start.sh`: it creates the schema
+from `docs/database/` if the database is empty (`setup-db.ts`), then the
+roles and admin (`SEED_ADMIN_*`), then the demo data when
+`SEED_DEMO_PASSWORD` is set, and then the server. Each step is skipped
+when its data is already there, so restarts are safe. `DATABASE_URL`
+must point at a database the container can reach. Uploads live on disk,
+so keep `/app/server/uploads` on a volume; the demo banners are part of
+the image (`/uploads/demo/`).
+
+## Deploy on Render (free)
+
+`render.yaml` is a [Render Blueprint](https://render.com/docs/blueprint-spec):
+a free web service built from the `Dockerfile` and a free PostgreSQL
+database, with `DATABASE_URL` wired between them and `JWT_SECRET`
+generated. In Render: **New → Blueprint**, pick this repository, then
+fill in `SEED_ADMIN_PHONE`, `SEED_ADMIN_PASSWORD` and (for the demo)
+`SEED_DEMO_PASSWORD`. The first start creates everything by itself.
+
+Limits of the free plan: the service sleeps when idle and the first
+request after that takes about a minute; files uploaded through the app
+are lost when the service restarts (the demo banners are not, they are
+in the image); the free database has an expiry date (see
+[Render's free tier](https://render.com/docs/free)). The planned VPS
+removes all three.
 
 ## Screenshots
 

@@ -74,8 +74,28 @@ Pushed 2026-11-26 (`86dab61..9a5e757`, user said "Yes, push").
   files on restart unless a disk/volume is added. Creating those accounts
   is the user's step.
 
-**Next:** decide the hosting; then deploy, seed the demo data there, put
-the live link and demo logins in the README.
+**Hosting decided 2026-11-27: free hosts now** (user picked "Free hosts
+now"); the VPS comes later. Chosen: **Render** for both the service and
+the database (one account, `render.yaml` Blueprint; Netlify not needed,
+since Express serves the client). Done for it, tested in Docker on an
+empty Postgres 18 and after a restart:
+
+- `server/start.sh` (image CMD): `setup-db.js` creates the schema from
+  `docs/database/` if `users` is missing (one transaction), then
+  `seed.js`, then `seed-demo.js` when `SEED_DEMO_PASSWORD` is set, then
+  the server. Restart logs: "already there" for all three.
+- Demo banners now live at `/uploads/demo/b1..b6.png`, baked into the
+  image (Render free loses runtime files on restart); `seed-demo` copies
+  them there locally too.
+- Render needs the user's account. There is an official Render MCP
+  connector (`https://mcp.render.com/mcp`); once the user connects it,
+  Claude can create the service and database. Otherwise: New →
+  Blueprint in the Render dashboard.
+
+**Next:** push (ask), the user signs up on Render (GitHub login) and
+either connects the Render connector or creates the Blueprint; set
+`SEED_ADMIN_PHONE`, `SEED_ADMIN_PASSWORD`, `SEED_DEMO_PASSWORD`; check
+the live site; put the link and demo logins in the README.
 
 ### Client notes for the next session
 

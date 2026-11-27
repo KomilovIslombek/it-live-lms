@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: it-live-lms
+    runtime: docker
+    plan: free
+    region: frankfurt
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: it-live-lms-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SEED_ADMIN_PHONE
+        sync: false
+      - key: SEED_ADMIN_PASSWORD
+        sync: false
+      - key: SEED_DEMO_PASSWORD
+        sync: false
+
+databases:
+  - name: it-live-lms-db
+    plan: free
+    region: frankfurt
+    databaseName: it_live_lms
+    user: lms

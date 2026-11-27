@@ -226,3 +226,14 @@ Vite, some Tailwind and shadcn. Docker: theory from videos only.
 - Postman cloud updates: `putCollection` needs an `id` on every top-level
   item; pass the existing item ids (bare UUID, without the `15896440-`
   owner prefix) to keep them, and items left out are deleted.
+- Running `seed-demo` (or any seed) from the repo's `server/` writes into
+  the user's real `server/uploads/`, even when `DATABASE_URL` points at a
+  scratch DB. Test seeds from a scratchpad copy of `server/` or in Docker.
+- Production image: `server/start.sh` prepares the DB itself (schema,
+  admin, demo data), so test it on an EMPTY `postgres:18` container on a
+  throwaway network/volume (`lmstest-*`), then remove them and the image;
+  leave the user's `it-live-lms-db` and `it-live-lms_db-data` alone.
+  Docker Desktop may need starting first (`Docker Desktop.exe` in
+  `C:\Users\i7\AppData\Local\Programs\DockerDesktop`).
+- curl over plain http still sends the `Secure` login cookie to
+  `localhost`, so production-mode checks with `-c`/`-b` work locally.
