@@ -108,7 +108,7 @@ redeploy logged "Admin was created successfully" and "Demo data
 created". Checked read-only in the Render DB: 1 admin, 2 mentors, 1
 assistant, 6 students, 6 courses, 12 lessons, 10 enrollments; live
 pages, 6 banners, 401 on a wrong password and on admin routes without a
-cookie. Signing in with the real passwords is the user's check.
+cookie. The user signed in on the live site and confirmed it works (2026-11-27).
 
 **Next:** Then add the demo logins
 (phones `+998000000201` mentor, `+998000000401` student) to the README if
