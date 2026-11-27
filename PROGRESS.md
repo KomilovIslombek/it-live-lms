@@ -103,9 +103,14 @@ https://it-live-lms-5csu.onrender.com: health ok, schema created by
 were left empty: Claude must not type passwords, so the start skipped
 the admin and the demo data.
 
-**Next:** the user sets `SEED_ADMIN_PHONE`, `SEED_ADMIN_PASSWORD` and
-`SEED_DEMO_PASSWORD` on the service's Environment page (Save → Render
-redeploys and the seeds run), then signs in. Then add the demo logins
+**2026-11-27 12:35 UTC:** the user set the three `SEED_*` values; the
+redeploy logged "Admin was created successfully" and "Demo data
+created". Checked read-only in the Render DB: 1 admin, 2 mentors, 1
+assistant, 6 students, 6 courses, 12 lessons, 10 enrollments; live
+pages, 6 banners, 401 on a wrong password and on admin routes without a
+cookie. Signing in with the real passwords is the user's check.
+
+**Next:** Then add the demo logins
 (phones `+998000000201` mentor, `+998000000401` student) to the README if
 the user wants the demo password public.
 
